@@ -1,15 +1,20 @@
 {
   "expo": {
-    "name": "ws-futsal",
-    "slug": "ws-futsal",
+    "name": "Futsal Manager",
+    "slug": "futsal-manager",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "wsfutsal",
-    "userInterfaceStyle": "automatic",
+    "scheme": "futsal-manager",
+    "userInterfaceStyle": "dark",
+    "owner": "godsonumoren",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.godsonumoren.wsfutsal",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -43,6 +48,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "6ddef346-fbf8-44c1-84cb-69571a5d03b6"
+      }
     }
   }
 }
