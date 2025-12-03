@@ -1,4 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { Picker } from "@react-native-picker/picker";
+import { router } from "expo-router";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -11,25 +13,31 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-} from 'react-native';
-import { Picker } from '@react-native-picker/picker';
+} from "react-native";
 
-import { Colors } from '@/constants/theme';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { exportNightsToCsv } from '@/lib/export';
-import { calculateTable, stageLabel } from '@/lib/tournament';
-import { useTournament } from '@/state/TournamentProvider';
-import { Match, MatchStage, Team } from '@/types/tournament';
+import { IconSymbol } from "@/components/ui/icon-symbol";
+import { Colors } from "@/constants/theme";
+import { exportNightsToCsv } from "@/lib/export";
+import { calculateTable, stageLabel } from "@/lib/tournament";
+import { useTournament } from "@/state/TournamentProvider";
+import { Match, MatchStage, Team } from "@/types/tournament";
 
-const PALETTE = ['#2563EB', '#22C55E', '#FACC15', '#EC4899', '#F97316', '#EF4444'];
+const PALETTE = [
+  "#2563EB",
+  "#22C55E",
+  "#FACC15",
+  "#EC4899",
+  "#F97316",
+  "#EF4444",
+];
 
 const stageOrder: MatchStage[] = [
-  'roundRobin',
-  'qualification',
-  'semiFinal1',
-  'semiFinal2',
-  'consolation',
-  'final',
+  "roundRobin",
+  "qualification",
+  "semiFinal1",
+  "semiFinal2",
+  "consolation",
+  "final",
 ];
 
 type TransferState = { playerId: string; fromTeamId: string } | null;
@@ -42,7 +50,13 @@ const chipStyle = (color: string) => ({
   marginRight: 8,
 });
 
-const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
+const Section = ({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) => (
   <View style={styles.section}>
     <Text style={styles.sectionTitle}>{title}</Text>
     {children}
@@ -52,9 +66,6 @@ const Section = ({ title, children }: { title: string; children: React.ReactNode
 const TeamCard = ({
   team,
   onRename,
-  onAddPlayer,
-  onAddExisting,
-  onTransfer,
   onColorChange,
   usedColors,
   expanded,
@@ -62,16 +73,12 @@ const TeamCard = ({
 }: {
   team: Team;
   onRename: (name: string) => void;
-  onAddPlayer: (name: string) => void;
-  onAddExisting: () => void;
-  onTransfer: (playerId: string) => void;
   onColorChange: (color: string) => void;
   usedColors: Set<string>;
   expanded: boolean;
   toggle: () => void;
 }) => {
   const [draftName, setDraftName] = useState(team.name);
-  const [playerName, setPlayerName] = useState('');
 
   return (
     <View style={styles.teamCard}>
@@ -79,12 +86,16 @@ const TeamCard = ({
         <View style={styles.teamHeaderLeft}>
           <View style={[chipStyle(team.color)]} />
           <Text style={styles.teamLabel} numberOfLines={1}>
-            {team.name || 'Team name'}
+            {team.name || "Team name"}
           </Text>
         </View>
         <View style={styles.teamHeaderRight}>
           <Text style={styles.teamMeta}>{team.players.length} players</Text>
-          <IconSymbol name={expanded ? 'chevron.up' : 'chevron.down'} size={18} color="#e2e8f0" />
+          <IconSymbol
+            name={expanded ? "chevron.up" : "chevron.down"}
+            size={18}
+            color="#e2e8f0"
+          />
         </View>
       </Pressable>
       {expanded && (
@@ -99,7 +110,8 @@ const TeamCard = ({
           />
           <View style={styles.colorWrap}>
             {PALETTE.map((color) => {
-              const takenByOther = usedColors.has(color) && color !== team.color;
+              const takenByOther =
+                usedColors.has(color) && color !== team.color;
               return (
                 <Pressable
                   key={color}
@@ -114,40 +126,35 @@ const TeamCard = ({
               );
             })}
           </View>
-          <View style={styles.playerList}>
-            {team.players.map((player) => (
-              <TouchableOpacity
-                key={player.id}
-                style={styles.playerTag}
-                onPress={() => onTransfer(player.id)}
-                hitSlop={12}>
-                <Text style={styles.playerName}>{player.name}</Text>
-                <Text style={styles.transferHint}>↦</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          {/* View Players and Add Players buttons */}
           <View style={styles.row}>
-            <TextInput
-              placeholder="Add player"
-              placeholderTextColor="#475569"
-              value={playerName}
-              onChangeText={setPlayerName}
-              style={[styles.input, styles.flex]}
-              onSubmitEditing={() => {
-                onAddPlayer(playerName);
-                setPlayerName('');
-              }}
-            />
             <Pressable
-              style={styles.iconButton}
-              onPress={() => {
-                onAddPlayer(playerName);
-                setPlayerName('');
-              }}>
-              <IconSymbol name="person.fill.badge.plus" size={24} color={Colors.light.tint} />
+              style={[
+                styles.smallButton,
+                styles.flex,
+                { backgroundColor: "#334155" },
+              ]}
+              onPress={() =>
+                router.push({
+                  pathname: "/view-players-modal",
+                  params: { teamId: team.id },
+                })
+              }
+            >
+              <Text style={[styles.smallButtonText, { color: "#e2e8f0" }]}>
+                View Players ({team.players.length})
+              </Text>
             </Pressable>
-            <Pressable style={styles.iconButton} onPress={onAddExisting}>
-              <IconSymbol name="person.crop.circle.badge.plus" size={24} color={Colors.light.tint} />
+            <Pressable
+              style={[styles.smallButton, styles.flex]}
+              onPress={() =>
+                router.push({
+                  pathname: "/add-players-modal",
+                  params: { teamId: team.id },
+                })
+              }
+            >
+              <Text style={styles.smallButtonText}>Add Players</Text>
             </Pressable>
           </View>
         </View>
@@ -172,27 +179,37 @@ const MatchRow = ({
   onSave: (home: number | undefined, away: number | undefined) => void;
   attachToTimer: () => void;
   isAttached: boolean;
-  onResolveTie: (method: 'extraTime' | 'penalties', home: number, away: number) => void;
+  onResolveTie: (
+    method: "extraTime" | "penalties",
+    home: number,
+    away: number
+  ) => void;
   onDurationChange: (seconds: number) => void;
 }) => {
-  const [home, setHome] = useState(match.homeScore?.toString() ?? '');
-  const [away, setAway] = useState(match.awayScore?.toString() ?? '');
-  const [etHome, setEtHome] = useState(match.extraTimeHome?.toString() ?? '');
-  const [etAway, setEtAway] = useState(match.extraTimeAway?.toString() ?? '');
-  const [penHome, setPenHome] = useState(match.penHome?.toString() ?? '');
-  const [penAway, setPenAway] = useState(match.penAway?.toString() ?? '');
+  const [home, setHome] = useState(match.homeScore?.toString() ?? "");
+  const [away, setAway] = useState(match.awayScore?.toString() ?? "");
+  const [etHome, setEtHome] = useState(match.extraTimeHome?.toString() ?? "");
+  const [etAway, setEtAway] = useState(match.extraTimeAway?.toString() ?? "");
+  const [penHome, setPenHome] = useState(match.penHome?.toString() ?? "");
+  const [penAway, setPenAway] = useState(match.penAway?.toString() ?? "");
   const [duration, setDuration] = useState(
-    match.durationSeconds ? Math.round(match.durationSeconds / 60).toString() : '',
+    match.durationSeconds
+      ? Math.round(match.durationSeconds / 60).toString()
+      : ""
   );
 
   useEffect(() => {
-    setHome(match.homeScore?.toString() ?? '');
-    setAway(match.awayScore?.toString() ?? '');
-    setEtHome(match.extraTimeHome?.toString() ?? '');
-    setEtAway(match.extraTimeAway?.toString() ?? '');
-    setPenHome(match.penHome?.toString() ?? '');
-    setPenAway(match.penAway?.toString() ?? '');
-    setDuration(match.durationSeconds ? Math.round(match.durationSeconds / 60).toString() : '');
+    setHome(match.homeScore?.toString() ?? "");
+    setAway(match.awayScore?.toString() ?? "");
+    setEtHome(match.extraTimeHome?.toString() ?? "");
+    setEtAway(match.extraTimeAway?.toString() ?? "");
+    setPenHome(match.penHome?.toString() ?? "");
+    setPenAway(match.penAway?.toString() ?? "");
+    setDuration(
+      match.durationSeconds
+        ? Math.round(match.durationSeconds / 60).toString()
+        : ""
+    );
   }, [
     match.homeScore,
     match.awayScore,
@@ -203,8 +220,8 @@ const MatchRow = ({
     match.durationSeconds,
   ]);
 
-  const isKnockout = match.stage !== 'roundRobin';
-  const scoresFilled = home !== '' && away !== '';
+  const isKnockout = match.stage !== "roundRobin";
+  const scoresFilled = home !== "" && away !== "";
   const isTied = scoresFilled && Number(home) === Number(away);
 
   const handleSaveDuration = () => {
@@ -217,13 +234,13 @@ const MatchRow = ({
     <View style={styles.matchRow}>
       <View style={styles.matchTeams}>
         <View style={styles.matchTeam}>
-          <View style={chipStyle(homeTeam?.color ?? '#475569')} />
-          <Text style={styles.teamLabel}>{homeTeam?.name ?? 'TBD'}</Text>
+          <View style={chipStyle(homeTeam?.color ?? "#475569")} />
+          <Text style={styles.teamLabel}>{homeTeam?.name ?? "TBD"}</Text>
         </View>
         <Text style={styles.vs}>vs</Text>
         <View style={styles.matchTeam}>
-          <View style={chipStyle(awayTeam?.color ?? '#475569')} />
-          <Text style={styles.teamLabel}>{awayTeam?.name ?? 'TBD'}</Text>
+          <View style={chipStyle(awayTeam?.color ?? "#475569")} />
+          <Text style={styles.teamLabel}>{awayTeam?.name ?? "TBD"}</Text>
         </View>
       </View>
       <View style={styles.matchInputs}>
@@ -246,17 +263,20 @@ const MatchRow = ({
         <Pressable
           style={styles.saveButton}
           onPress={() => {
-            const homeScore = home === '' ? undefined : Number(home);
-            const awayScore = away === '' ? undefined : Number(away);
+            const homeScore = home === "" ? undefined : Number(home);
+            const awayScore = away === "" ? undefined : Number(away);
             onSave(homeScore, awayScore);
-          }}>
+          }}
+        >
           <Text style={styles.saveText}>Save</Text>
         </Pressable>
       </View>
 
       {isKnockout && scoresFilled && isTied && (
         <View style={styles.tieBox}>
-          <Text style={styles.subtle}>Resolve tie (2 minute extra time, then penalties)</Text>
+          <Text style={styles.subtle}>
+            Resolve tie (2 minute extra time, then penalties)
+          </Text>
           <View style={styles.row}>
             <TextInput
               value={etHome}
@@ -276,7 +296,10 @@ const MatchRow = ({
             />
             <Pressable
               style={styles.smallButton}
-              onPress={() => onResolveTie('extraTime', Number(etHome), Number(etAway))}>
+              onPress={() =>
+                onResolveTie("extraTime", Number(etHome), Number(etAway))
+              }
+            >
               <Text style={styles.smallButtonText}>Save ET</Text>
             </Pressable>
           </View>
@@ -298,8 +321,11 @@ const MatchRow = ({
               style={[styles.scoreInput, styles.flex]}
             />
             <Pressable
-              style={[styles.smallButton, { backgroundColor: '#f59e0b' }]}
-              onPress={() => onResolveTie('penalties', Number(penHome), Number(penAway))}>
+              style={[styles.smallButton, { backgroundColor: "#f59e0b" }]}
+              onPress={() =>
+                onResolveTie("penalties", Number(penHome), Number(penAway))
+              }
+            >
               <Text style={styles.smallButtonText}>Pens</Text>
             </Pressable>
           </View>
@@ -323,22 +349,30 @@ const MatchRow = ({
         </View>
       </View>
 
-      <TouchableOpacity style={styles.timerTag} onPress={attachToTimer} hitSlop={12}>
-        <Text style={[styles.timerTagText, isAttached && styles.timerTagTextActive]}>
-          {isAttached ? 'Timing' : 'Tag to timer'}
+      <TouchableOpacity
+        style={styles.timerTag}
+        onPress={attachToTimer}
+        hitSlop={12}
+      >
+        <Text
+          style={[styles.timerTagText, isAttached && styles.timerTagTextActive]}
+        >
+          {isAttached ? "Timing" : "Tag to timer"}
         </Text>
       </TouchableOpacity>
-      {match.resolvedBy && <Text style={styles.subtle}>Resolved by {match.resolvedBy}</Text>}
+      {match.resolvedBy && (
+        <Text style={styles.subtle}>Resolved by {match.resolvedBy}</Text>
+      )}
     </View>
   );
 };
 
 const Bracket = ({ matches, teams }: { matches: Match[]; teams: Team[] }) => {
   const findTeam = (id?: string) => teams.find((t) => t.id === id);
-  const semi1 = matches.find((m) => m.stage === 'semiFinal1');
-  const semi2 = matches.find((m) => m.stage === 'semiFinal2');
-  const consolation = matches.find((m) => m.stage === 'consolation');
-  const finalMatch = matches.find((m) => m.stage === 'final');
+  const semi1 = matches.find((m) => m.stage === "semiFinal1");
+  const semi2 = matches.find((m) => m.stage === "semiFinal2");
+  const consolation = matches.find((m) => m.stage === "consolation");
+  const finalMatch = matches.find((m) => m.stage === "final");
   const renderSlot = (label: string, match?: Match) => {
     if (!match) return null;
     const home = findTeam(match.homeId);
@@ -347,10 +381,12 @@ const Bracket = ({ matches, teams }: { matches: Match[]; teams: Team[] }) => {
       <View style={styles.bracketCard} key={label}>
         <Text style={styles.bracketTitle}>{label}</Text>
         <Text style={styles.bracketLine}>
-          <Text style={styles.bold}>{home?.name ?? 'TBD'}</Text> ({match.homeScore ?? '-'})
+          <Text style={styles.bold}>{home?.name ?? "TBD"}</Text> (
+          {match.homeScore ?? "-"})
         </Text>
         <Text style={styles.bracketLine}>
-          <Text style={styles.bold}>{away?.name ?? 'TBD'}</Text> ({match.awayScore ?? '-'})
+          <Text style={styles.bold}>{away?.name ?? "TBD"}</Text> (
+          {match.awayScore ?? "-"})
         </Text>
       </View>
     );
@@ -358,11 +394,15 @@ const Bracket = ({ matches, teams }: { matches: Match[]; teams: Team[] }) => {
   return (
     <View style={styles.bracketGrid}>
       <View style={styles.bracketColumn}>
-        {renderSlot('Semi 1', semi1)}
-        {renderSlot('Semi 2', semi2)}
+        {renderSlot("Semi 1", semi1)}
+        {renderSlot("Semi 2", semi2)}
       </View>
-      <View style={styles.bracketColumn}>{renderSlot('Consolation', consolation)}</View>
-      <View style={styles.bracketColumn}>{renderSlot('Final', finalMatch)}</View>
+      <View style={styles.bracketColumn}>
+        {renderSlot("Consolation", consolation)}
+      </View>
+      <View style={styles.bracketColumn}>
+        {renderSlot("Final", finalMatch)}
+      </View>
     </View>
   );
 };
@@ -397,12 +437,15 @@ const TransferModal = ({
                   onSelect(item.id);
                   onClose();
                 }}
-                hitSlop={12}>
+                hitSlop={12}
+              >
                 <View style={chipStyle(item.color)} />
                 <Text style={styles.teamLabel}>{item.name}</Text>
               </TouchableOpacity>
             )}
-            ListEmptyComponent={<Text style={styles.empty}>Add another team to transfer.</Text>}
+            ListEmptyComponent={
+              <Text style={styles.empty}>Add another team to transfer.</Text>
+            }
           />
           <Pressable onPress={onClose} style={styles.modalClose}>
             <Text style={styles.modalCloseText}>Cancel</Text>
@@ -419,8 +462,6 @@ export default function GamesScreen() {
     currentNight,
     addTeam,
     updateTeam,
-    addPlayer,
-    addExistingPlayer,
     transferPlayer,
     updateMatchScore,
     resolveTie,
@@ -431,18 +472,16 @@ export default function GamesScreen() {
     setCurrentNight,
     startNight,
   } = useTournament();
-  const [newTeamName, setNewTeamName] = useState('');
+  const [newTeamName, setNewTeamName] = useState("");
   const [newTeamColor, setNewTeamColor] = useState(PALETTE[0]);
   const [transferState, setTransferState] = useState<TransferState>(null);
   const [nightSheetVisible, setNightSheetVisible] = useState(false);
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
-  const [existingPickerTeam, setExistingPickerTeam] = useState<string | null>(null);
-  const [existingSearch, setExistingSearch] = useState('');
   const loading = state.loading || !currentNight;
 
   const usedColors = useMemo(
     () => new Set(currentNight?.teams.map((t) => t.color) ?? []),
-    [currentNight?.teams],
+    [currentNight?.teams]
   );
 
   useEffect(() => {
@@ -451,8 +490,11 @@ export default function GamesScreen() {
   }, [usedColors]);
 
   const table = useMemo(
-    () => (currentNight ? calculateTable(currentNight.teams, currentNight.matches) : []),
-    [currentNight],
+    () =>
+      currentNight
+        ? calculateTable(currentNight.teams, currentNight.matches)
+        : [],
+    [currentNight]
   );
 
   const matchesByStage = useMemo(() => {
@@ -465,11 +507,6 @@ export default function GamesScreen() {
       .filter((item) => item.matches.length > 0);
   }, [currentNight]);
 
-  const globalChoices = useMemo(() => {
-    const term = existingSearch.toLowerCase();
-    return state.globalPlayers.filter((p) => p.name.toLowerCase().includes(term));
-  }, [existingSearch, state.globalPlayers]);
-
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -481,18 +518,22 @@ export default function GamesScreen() {
   const handleAddTeam = () => {
     if (!newTeamName.trim()) return;
     addTeam({ name: newTeamName.trim(), color: newTeamColor });
-    setNewTeamName('');
+    setNewTeamName("");
   };
 
-  const findTeam = (id?: string) => currentNight?.teams.find((t) => t.id === id);
-  const needQualification = currentNight.teams.length >= 3 && currentNight.teams.length % 2 === 1;
-  const bottomTwo = needQualification ? table.slice(-2).map((r) => r.teamId) : [];
+  const findTeam = (id?: string) =>
+    currentNight?.teams.find((t) => t.id === id);
+  const needQualification =
+    currentNight.teams.length >= 3 && currentNight.teams.length % 2 === 1;
+  const bottomTwo = needQualification
+    ? table.slice(-2).map((r) => r.teamId)
+    : [];
 
   const handleExport = async () => {
     try {
       await exportNightsToCsv(state.nights);
     } catch (err) {
-      console.warn('Export failed', err);
+      console.warn("Export failed", err);
     }
   };
 
@@ -508,21 +549,35 @@ export default function GamesScreen() {
     });
   };
 
-  const expandAll = () => setExpandedTeams(new Set(currentNight.teams.map((t) => t.id)));
+  const expandAll = () =>
+    setExpandedTeams(new Set(currentNight.teams.map((t) => t.id)));
   const collapseAll = () => setExpandedTeams(new Set());
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <Section title="Tonight">
-          <View style={[styles.row, { justifyContent: 'space-between', alignItems: 'center' }]}>
-            <Pressable style={styles.selectButton} onPress={() => setNightSheetVisible(true)}>
+          <View
+            style={[
+              styles.row,
+              { justifyContent: "space-between", alignItems: "center" },
+            ]}
+          >
+            <Pressable
+              style={styles.selectButton}
+              onPress={() => setNightSheetVisible(true)}
+            >
               <Text style={styles.selectText}>{currentNight.title}</Text>
-              <IconSymbol name="chevron.up.chevron.down" color="#e2e8f0" size={18} />
+              <IconSymbol
+                name="chevron.up.chevron.down"
+                color="#e2e8f0"
+                size={18}
+              />
             </Pressable>
             <Pressable
               style={[styles.smallButton, { marginLeft: 8 }]}
-              onPress={() => startNight(`Night ${state.nights.length + 1}`)}>
+              onPress={() => startNight(`Night ${state.nights.length + 1}`)}
+            >
               <Text style={styles.smallButtonText}>New night</Text>
             </Pressable>
           </View>
@@ -534,23 +589,36 @@ export default function GamesScreen() {
               placeholder="Game night name"
               placeholderTextColor="#475569"
             />
-            <Pressable style={[styles.smallButton, { marginLeft: 8 }]} onPress={useDateTitle}>
+            <Pressable
+              style={[styles.smallButton, { marginLeft: 8 }]}
+              onPress={useDateTitle}
+            >
               <Text style={styles.smallButtonText}>Use Date</Text>
             </Pressable>
           </View>
-          <View style={[styles.row, { justifyContent: 'space-between' }]}>
+          <View style={[styles.row, { justifyContent: "space-between" }]}>
             <Text style={styles.subtle}>
-              {new Date(currentNight.createdAt).toLocaleString()} · {currentNight.teams.length} teams
+              {new Date(currentNight.createdAt).toLocaleString()} ·{" "}
+              {currentNight.teams.length} teams
             </Text>
             <View style={styles.row}>
               <Pressable
                 style={[styles.iconButton, styles.iconButtonDestructive]}
                 onPress={resetNight}
-                hitSlop={12}>
+                hitSlop={12}
+              >
                 <IconSymbol name="arrow.clockwise" size={18} color="#ef4444" />
               </Pressable>
-              <Pressable style={styles.iconButton} onPress={handleExport} hitSlop={12}>
-                <IconSymbol name="square.and.arrow.up" size={18} color={Colors.light.tint} />
+              <Pressable
+                style={styles.iconButton}
+                onPress={handleExport}
+                hitSlop={12}
+              >
+                <IconSymbol
+                  name="square.and.arrow.up"
+                  size={18}
+                  color={Colors.light.tint}
+                />
               </Pressable>
             </View>
           </View>
@@ -558,7 +626,8 @@ export default function GamesScreen() {
 
         <Section title="Teams & Players">
           <Text style={styles.subtle}>
-            Colors are unique per night. Change a team color to free it up for others.
+            Colors are unique per night. Change a team color to free it up for
+            others.
           </Text>
           <View style={{ gap: 10 }}>
             <TextInput
@@ -568,7 +637,12 @@ export default function GamesScreen() {
               onChangeText={setNewTeamName}
               style={styles.input}
             />
-            <View style={[styles.row, { justifyContent: 'space-between', alignItems: 'center' }]}>
+            <View
+              style={[
+                styles.row,
+                { justifyContent: "space-between", alignItems: "center" },
+              ]}
+            >
               <View style={[styles.colorWrap, { flex: 1 }]}>
                 {PALETTE.map((color) => {
                   const taken = usedColors.has(color);
@@ -587,30 +661,52 @@ export default function GamesScreen() {
                   );
                 })}
               </View>
-              <Pressable style={[styles.iconButton, { marginLeft: 8 }]} onPress={handleAddTeam}>
-                <IconSymbol name="plus.circle.fill" size={28} color={Colors.light.tint} />
+              <Pressable
+                style={[styles.iconButton, { marginLeft: 8 }]}
+                onPress={handleAddTeam}
+              >
+                <IconSymbol
+                  name="plus.circle.fill"
+                  size={28}
+                  color={Colors.light.tint}
+                />
               </Pressable>
             </View>
-            <View style={[styles.row, { justifyContent: 'flex-end', gap: 8 }]}>
-              <Pressable style={styles.iconButton} onPress={expandAll} hitSlop={12}>
-                <IconSymbol name="chevron.down" size={18} color={Colors.light.tint} />
+            <View style={[styles.row, { justifyContent: "flex-end", gap: 8 }]}>
+              <Pressable
+                style={styles.iconButton}
+                onPress={expandAll}
+                hitSlop={12}
+              >
+                <IconSymbol
+                  name="chevron.down"
+                  size={18}
+                  color={Colors.light.tint}
+                />
               </Pressable>
-              <Pressable style={styles.iconButton} onPress={collapseAll} hitSlop={12}>
-                <IconSymbol name="chevron.up" size={18} color={Colors.light.tint} />
+              <Pressable
+                style={styles.iconButton}
+                onPress={collapseAll}
+                hitSlop={12}
+              >
+                <IconSymbol
+                  name="chevron.up"
+                  size={18}
+                  color={Colors.light.tint}
+                />
               </Pressable>
             </View>
           </View>
           {currentNight.teams.length === 0 ? (
-            <Text style={styles.empty}>Add between 2–6 teams to generate fixtures.</Text>
+            <Text style={styles.empty}>
+              Add between 2–6 teams to generate fixtures.
+            </Text>
           ) : (
             currentNight.teams.map((team) => (
               <TeamCard
                 key={team.id}
                 team={team}
                 onRename={(name) => updateTeam(team.id, { name })}
-                onAddPlayer={(name) => addPlayer(team.id, name)}
-                onAddExisting={() => setExistingPickerTeam(team.id)}
-                onTransfer={(playerId) => setTransferState({ playerId, fromTeamId: team.id })}
                 onColorChange={(color) => updateTeam(team.id, { color })}
                 usedColors={usedColors}
                 expanded={expandedTeams.has(team.id)}
@@ -630,7 +726,8 @@ export default function GamesScreen() {
             <Text style={styles.tableCell}>GA</Text>
           </View>
           {table.map((row, index) => {
-            const inSemiWindow = currentNight.teams.length >= 4 ? index < 4 : index === 0;
+            const inSemiWindow =
+              currentNight.teams.length >= 4 ? index < 4 : index === 0;
             const isBottomQual = bottomTwo.includes(row.teamId);
             return (
               <View
@@ -640,7 +737,8 @@ export default function GamesScreen() {
                   { backgroundColor: `${row.color}33` },
                   inSemiWindow && styles.tableSemi,
                   isBottomQual && styles.tableQual,
-                ]}>
+                ]}
+              >
                 <View style={[styles.tableCell, styles.wide, styles.row]}>
                   <View style={chipStyle(row.color)} />
                   <Text style={styles.teamLabel}>{row.name}</Text>
@@ -657,7 +755,9 @@ export default function GamesScreen() {
 
         <Section title="Matches">
           {matchesByStage.length === 0 && (
-            <Text style={styles.empty}>Fixtures will appear once you add at least 2 teams.</Text>
+            <Text style={styles.empty}>
+              Fixtures will appear once you add at least 2 teams.
+            </Text>
           )}
           {matchesByStage.map(({ stage, matches }) => (
             <View key={stage} style={styles.stageBlock}>
@@ -671,8 +771,12 @@ export default function GamesScreen() {
                   isAttached={currentNight.currentMatchId === match.id}
                   attachToTimer={() => attachMatchToTimer(match.id)}
                   onSave={(h, a) => updateMatchScore(match.id, h, a)}
-                  onResolveTie={(method, h, a) => resolveTie(match.id, method, h, a)}
-                  onDurationChange={(seconds) => setMatchDuration(match.id, seconds)}
+                  onResolveTie={(method, h, a) =>
+                    resolveTie(match.id, method, h, a)
+                  }
+                  onDurationChange={(seconds) =>
+                    setMatchDuration(match.id, seconds)
+                  }
                 />
               ))}
             </View>
@@ -691,7 +795,11 @@ export default function GamesScreen() {
         transferState={transferState}
         onSelect={(teamId) => {
           if (transferState) {
-            transferPlayer(transferState.playerId, transferState.fromTeamId, teamId);
+            transferPlayer(
+              transferState.playerId,
+              transferState.fromTeamId,
+              teamId
+            );
           }
         }}
       />
@@ -700,14 +808,30 @@ export default function GamesScreen() {
         visible={nightSheetVisible}
         transparent
         animationType="slide"
-        onRequestClose={() => setNightSheetVisible(false)}>
+        onRequestClose={() => setNightSheetVisible(false)}
+      >
         <View style={styles.sheetBackdrop}>
-          <Pressable style={{ flex: 1 }} onPress={() => setNightSheetVisible(false)} />
+          <Pressable
+            style={{ flex: 1 }}
+            onPress={() => setNightSheetVisible(false)}
+          />
           <View style={styles.sheet}>
-            <View style={[styles.row, { justifyContent: 'space-between', alignItems: 'center' }]}>
+            <View
+              style={[
+                styles.row,
+                { justifyContent: "space-between", alignItems: "center" },
+              ]}
+            >
               <Text style={styles.sheetTitle}>Select night</Text>
-              <Pressable onPress={() => setNightSheetVisible(false)} hitSlop={12}>
-                <IconSymbol name="xmark.circle.fill" size={24} color="#e2e8f0" />
+              <Pressable
+                onPress={() => setNightSheetVisible(false)}
+                hitSlop={12}
+              >
+                <IconSymbol
+                  name="xmark.circle.fill"
+                  size={24}
+                  color="#e2e8f0"
+                />
               </Pressable>
             </View>
             <Picker
@@ -718,58 +842,17 @@ export default function GamesScreen() {
               }}
               dropdownIconColor="#e2e8f0"
               style={styles.picker}
-              mode="dropdown">
+              mode="dropdown"
+            >
               {state.nights.map((night) => (
-                <Picker.Item key={night.id} label={night.title} value={night.id} color="#e2e8f0" />
+                <Picker.Item
+                  key={night.id}
+                  label={night.title}
+                  value={night.id}
+                  color="#e2e8f0"
+                />
               ))}
             </Picker>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
-        visible={!!existingPickerTeam}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setExistingPickerTeam(null)}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.existingModal}>
-            <View style={[styles.row, { justifyContent: 'space-between', alignItems: 'center' }]}>
-              <Text style={styles.modalTitle}>Add existing player</Text>
-              <Pressable onPress={() => setExistingPickerTeam(null)} hitSlop={12}>
-                <IconSymbol name="xmark" size={20} color="#e2e8f0" />
-              </Pressable>
-            </View>
-            <TextInput
-              style={styles.existingInput}
-              placeholder="Search players"
-              placeholderTextColor="#64748b"
-              value={existingSearch}
-              onChangeText={setExistingSearch}
-            />
-            <View style={styles.existingList}>
-              <FlatList
-                data={globalChoices}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                  <Pressable
-                    style={styles.existingRow}
-                    onPress={() => {
-                      if (existingPickerTeam) {
-                        addExistingPlayer(existingPickerTeam, item.id);
-                        setExistingPickerTeam(null);
-                        setExistingSearch('');
-                      }
-                    }}>
-                    <Text style={styles.teamLabel}>{item.name}</Text>
-                  </Pressable>
-                )}
-                ListEmptyComponent={<Text style={styles.subtle}>No players found</Text>}
-              />
-            </View>
-            <Pressable style={styles.iconButton} onPress={() => setExistingPickerTeam(null)}>
-              <Text style={styles.linkText}>Close</Text>
-            </Pressable>
           </View>
         </View>
       </Modal>
@@ -777,9 +860,9 @@ export default function GamesScreen() {
   );
 }
 
-const baseBg = 'hsl(0 0% 3.9%)';
-const cardBg = 'hsl(0 0% 3.9%)';
-const borderCol = 'hsl(0 0% 14.9%)';
+const baseBg = "hsl(0 0% 3.9%)";
+const cardBg = "hsl(0 0% 3.9%)";
+const borderCol = "hsl(0 0% 14.9%)";
 
 const styles = StyleSheet.create({
   container: {
@@ -800,22 +883,22 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '800',
-    color: '#e2e8f0',
+    fontWeight: "800",
+    color: "#e2e8f0",
   },
   titleInput: {
     fontSize: 20,
-    fontWeight: '800',
+    fontWeight: "800",
     paddingVertical: 6,
-    color: '#e2e8f0',
+    color: "#e2e8f0",
   },
   subtle: {
-    color: '#94a3b8',
+    color: "#94a3b8",
     fontSize: 13,
   },
   row: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 10,
   },
   linkButton: {
@@ -825,7 +908,7 @@ const styles = StyleSheet.create({
   },
   linkText: {
     color: Colors.light.tint,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   input: {
     borderWidth: 1,
@@ -834,7 +917,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 12,
     backgroundColor: cardBg,
-    color: '#e2e8f0',
+    color: "#e2e8f0",
     minHeight: 44,
   },
   flex: { flex: 1 },
@@ -847,7 +930,7 @@ const styles = StyleSheet.create({
     borderColor: baseBg,
   },
   colorSwatchActive: {
-    borderColor: '#e2e8f0',
+    borderColor: "#e2e8f0",
   },
   smallButton: {
     backgroundColor: Colors.light.tint,
@@ -855,11 +938,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 12,
     minHeight: 44,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   smallButtonText: {
-    color: '#0b1220',
-    fontWeight: '800',
+    color: "#0b1220",
+    fontWeight: "800",
   },
   teamCard: {
     borderWidth: 1,
@@ -872,12 +955,12 @@ const styles = StyleSheet.create({
   },
   teamName: {
     fontSize: 16,
-    fontWeight: '800',
-    color: '#e2e8f0',
+    fontWeight: "800",
+    color: "#e2e8f0",
   },
   playerList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
   },
   playerTag: {
@@ -885,56 +968,61 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 999,
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 6,
-    alignItems: 'center',
+    alignItems: "center",
     minHeight: 38,
   },
-  playerName: { fontWeight: '700', color: '#e2e8f0' },
-  transferHint: { color: '#94a3b8' },
+  playerName: { fontWeight: "700", color: "#e2e8f0" },
+  transferHint: { color: "#94a3b8" },
   colorWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
-    width: '100%',
+    width: "100%",
     marginBottom: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   tableHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     borderBottomWidth: 1,
     borderColor: borderCol,
     paddingBottom: 6,
   },
   tableRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     paddingVertical: 8,
     borderBottomWidth: 1,
     borderColor: borderCol,
   },
-  tableCell: { width: 44, fontVariant: ['tabular-nums'], color: '#e2e8f0' },
-  wide: { flex: 1, width: 'auto' },
+  tableCell: { width: 44, fontVariant: ["tabular-nums"], color: "#e2e8f0" },
+  wide: { flex: 1, width: "auto" },
   teamLabel: {
-    fontWeight: '700',
-    color: '#e2e8f0',
-    maxWidth: '70%',
+    fontWeight: "700",
+    color: "#e2e8f0",
+    maxWidth: "70%",
   },
   teamHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingVertical: 6,
   },
-  teamHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
-  teamHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  teamMeta: { color: '#94a3b8', fontSize: 12 },
-  tableSemi: { backgroundColor: '#0b172e' },
-  tableQual: { backgroundColor: '#221217' },
-  empty: { color: '#94a3b8', paddingVertical: 6 },
+  teamHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+  },
+  teamHeaderRight: { flexDirection: "row", alignItems: "center", gap: 8 },
+  teamMeta: { color: "#94a3b8", fontSize: 12 },
+  tableSemi: { backgroundColor: "#0b172e" },
+  tableQual: { backgroundColor: "#221217" },
+  empty: { color: "#94a3b8", paddingVertical: 6 },
   stageBlock: { marginBottom: 10, gap: 6 },
-  stageTitle: { fontWeight: '800', fontSize: 16, color: '#e2e8f0' },
+  stageTitle: { fontWeight: "800", fontSize: 16, color: "#e2e8f0" },
   matchRow: {
     borderWidth: 1,
     borderColor: borderCol,
@@ -944,40 +1032,73 @@ const styles = StyleSheet.create({
     backgroundColor: cardBg,
   },
   matchTeams: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
-  matchTeam: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  vs: { fontWeight: '800', color: '#e2e8f0' },
-  matchInputs: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  matchTeam: { flexDirection: "row", alignItems: "center", gap: 8 },
+  vs: { fontWeight: "800", color: "#e2e8f0" },
+  matchInputs: { flexDirection: "row", alignItems: "center", gap: 10 },
   scoreInput: {
     borderWidth: 1,
     borderColor: borderCol,
     paddingHorizontal: 10,
     paddingVertical: 10,
     borderRadius: 12,
-    textAlign: 'center',
+    textAlign: "center",
     backgroundColor: baseBg,
-    color: '#e2e8f0',
+    color: "#e2e8f0",
     minHeight: 44,
   },
   saveButton: {
-    backgroundColor: '#38bdf8',
+    backgroundColor: "#38bdf8",
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderRadius: 12,
     minHeight: 44,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
-  saveText: { color: '#0b1220', fontWeight: '800' },
-  timerTag: { alignSelf: 'flex-start' },
-  timerTagText: { color: '#94a3b8', fontWeight: '700' },
-  timerTagTextActive: { color: Colors.light.tint, fontWeight: '800' },
+  saveText: { color: "#0b1220", fontWeight: "800" },
+  tieBox: {
+    gap: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderColor: borderCol,
+  },
+  durationRow: {
+    gap: 4,
+  },
+  selectButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: cardBg,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: borderCol,
+  },
+  selectText: {
+    color: "#e2e8f0",
+    fontWeight: "700",
+  },
+  iconButton: {
+    padding: 8,
+  },
+  iconButtonDestructive: {
+    opacity: 0.8,
+  },
+  picker: {
+    color: "#e2e8f0",
+  },
+  timerTag: { alignSelf: "flex-start" },
+  timerTagText: { color: "#94a3b8", fontWeight: "700" },
+  timerTagTextActive: { color: Colors.light.tint, fontWeight: "800" },
   bracketGrid: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
-    justifyContent: 'space-between',
+    justifyContent: "space-between",
   },
   bracketColumn: { flex: 1, gap: 8 },
   bracketCard: {
@@ -987,13 +1108,13 @@ const styles = StyleSheet.create({
     padding: 10,
     backgroundColor: cardBg,
   },
-  bracketTitle: { fontWeight: '800', marginBottom: 4, color: '#e2e8f0' },
-  bracketLine: { color: '#e2e8f0' },
-  bold: { fontWeight: '800' },
+  bracketTitle: { fontWeight: "800", marginBottom: 4, color: "#e2e8f0" },
+  bracketLine: { color: "#e2e8f0" },
+  bold: { fontWeight: "800" },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
     padding: 20,
   },
   modalCard: {
@@ -1004,14 +1125,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: borderCol,
   },
-  modalTitle: { fontWeight: '800', fontSize: 16, color: '#e2e8f0' },
-  transferRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
-  modalClose: { alignSelf: 'flex-end' },
-  modalCloseText: { color: Colors.light.tint, fontWeight: '800' },
+  modalTitle: { fontWeight: "800", fontSize: 16, color: "#e2e8f0" },
+  transferRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 8,
+  },
+  modalClose: { alignSelf: "flex-end" },
+  modalCloseText: { color: Colors.light.tint, fontWeight: "800" },
   sheetBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "flex-end",
   },
   sheet: {
     backgroundColor: cardBg,
@@ -1021,7 +1147,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: borderCol,
   },
-  sheetTitle: { color: '#e2e8f0', fontWeight: '800', fontSize: 16 },
+  sheetTitle: { color: "#e2e8f0", fontWeight: "800", fontSize: 16 },
   existingModal: {
     backgroundColor: cardBg,
     borderRadius: 14,
@@ -1033,8 +1159,8 @@ const styles = StyleSheet.create({
   existingList: { maxHeight: 260 },
   existingRow: {
     paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
   existingInput: {
@@ -1044,6 +1170,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 10,
     backgroundColor: baseBg,
-    color: '#e2e8f0',
+    color: "#e2e8f0",
   },
 });

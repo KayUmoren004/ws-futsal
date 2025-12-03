@@ -1,24 +1,23 @@
 import React, { useState } from 'react';
 import {
   Alert,
-  FlatList,
   Pressable,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { Link } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 import { useTournament } from '@/state/TournamentProvider';
 
 export default function PreferencesScreen() {
-  const { resetAllData, addGlobalPlayers } = useTournament();
+  const { resetAllData } = useTournament();
   const [loading, setLoading] = useState(false);
-  const [importText, setImportText] = useState('');
 
-  const handleReset = async () => {
+  const handleReset = () => {
     Alert.alert(
       'Reset all data',
       'This will clear every saved night, team, and match. Continue?',
@@ -39,106 +38,122 @@ export default function PreferencesScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <FlatList
-        contentContainerStyle={styles.scroll}
-        ListHeaderComponent={
-          <View style={{ gap: 12 }}>
-            <View style={styles.card}>
-              <Text style={styles.title}>Import players</Text>
-              <Text style={styles.subtle}>Add player names (one per line) to reuse across nights.</Text>
-              <TextInput
-                style={styles.input}
-                multiline
-                placeholder="e.g. Jane Smith\nOmar K\nLee"
-                placeholderTextColor="#64748b"
-                value={importText}
-                onChangeText={setImportText}
-              />
-              <Pressable
-                style={styles.buttonSecondary}
-                onPress={() => {
-              const names = importText.split('\n');
-              addGlobalPlayers(names);
-              setImportText('');
-            }}>
-                <Text style={styles.buttonText}>Save players</Text>
-              </Pressable>
-            </View>
+      <ScrollView contentContainerStyle={styles.scroll}>
+        <Text style={styles.pageTitle}>Settings</Text>
 
-        <View style={styles.card}>
-          <View style={[styles.row, { justifyContent: 'space-between', alignItems: 'center' }]}>
-            <Text style={styles.title}>Players library</Text>
-            <Link href="/player-library" asChild>
-              <Pressable style={styles.linkBtn}>
-                <Text style={styles.linkText}>Open</Text>
-              </Pressable>
-            </Link>
-          </View>
-          <Text style={styles.subtle}>
-            Manage reusable players on a dedicated page. You can search and delete there.
+        {/* Navigation Links */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Data</Text>
+          
+          <Link href="/player-library" asChild>
+            <Pressable style={styles.linkRow}>
+              <View style={styles.linkContent}>
+                <Text style={styles.linkText}>Player Library</Text>
+                <Text style={styles.linkSubtext}>Manage reusable players</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#64748b" />
+            </Pressable>
+          </Link>
+        </View>
+
+        {/* Danger Zone */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Danger Zone</Text>
+          
+          <Pressable
+            style={({ pressed }) => [
+              styles.destructiveButton,
+              pressed && styles.buttonPressed,
+              loading && styles.buttonDisabled,
+            ]}
+            onPress={handleReset}
+            disabled={loading}
+          >
+            <Ionicons name="trash-outline" size={18} color="#fca5a5" />
+            <Text style={styles.destructiveButtonText}>
+              {loading ? 'Resetting…' : 'Reset all data'}
+            </Text>
+          </Pressable>
+          <Text style={styles.helperText}>
+            Wipes all nights, teams, players, and matches from this device.
           </Text>
         </View>
-          </View>
-        }
-        ListFooterComponent={
-          <View style={styles.card}>
-            <Text style={styles.title}>Preferences</Text>
-            <Text style={styles.subtle}>
-              Reset will wipe all stored nights, teams, players, and matches from this device.
-            </Text>
-            <Pressable style={[styles.button, loading && styles.buttonDisabled]} onPress={handleReset}>
-              <Text style={styles.buttonText}>{loading ? 'Resetting…' : 'Reset all data'}</Text>
-            </Pressable>
-          </View>
-        }
-      />
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: 'hsl(0 0% 3.9%)' },
-  scroll: { padding: 16, gap: 12, paddingBottom: 32 },
-  card: {
+  container: {
+    flex: 1,
     backgroundColor: 'hsl(0 0% 3.9%)',
-    borderRadius: 14,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'hsl(0 0% 14.9%)',
-    gap: 12,
   },
-  title: { color: '#e2e8f0', fontSize: 20, fontWeight: '800' },
-  subtle: { color: '#94a3b8' },
-  button: {
-    backgroundColor: '#ef4444',
-    paddingVertical: 14,
-    borderRadius: 12,
+  scroll: {
+    padding: 20,
+    paddingTop: 16,
+  },
+  pageTitle: {
+    color: '#f8fafc',
+    fontSize: 28,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+    marginBottom: 32,
+  },
+  section: {
+    marginBottom: 32,
+  },
+  sectionLabel: {
+    color: '#64748b',
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 12,
+  },
+  linkRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-  },
-  buttonSecondary: {
-    backgroundColor: '#38bdf8',
+    justifyContent: 'space-between',
     paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'hsl(0 0% 14.9%)',
   },
-  buttonDisabled: { opacity: 0.6 },
-  buttonText: { color: '#0b1220', fontWeight: '800', fontSize: 16 },
-  input: {
-    borderWidth: 1,
-    borderColor: 'hsl(0 0% 14.9%)',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: 'hsl(0 0% 3.9%)',
+  linkContent: {
+    flex: 1,
+  },
+  linkText: {
     color: '#e2e8f0',
-    minHeight: 44,
+    fontSize: 16,
+    fontWeight: '500',
   },
-  playerRow: {
-    backgroundColor: 'hsl(0 0% 3.9%)',
-    borderWidth: 1,
-    borderColor: 'hsl(0 0% 14.9%)',
-    borderRadius: 10,
-    padding: 12,
+  linkSubtext: {
+    color: '#64748b',
+    fontSize: 13,
+    marginTop: 2,
   },
-  playerRowText: { color: '#e2e8f0', fontWeight: '600' },
+  destructiveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'hsl(0 0% 14.9%)',
+  },
+  destructiveButtonText: {
+    color: '#fca5a5',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  buttonPressed: {
+    opacity: 0.7,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
+  helperText: {
+    color: '#475569',
+    fontSize: 13,
+    marginTop: 8,
+    lineHeight: 18,
+  },
 });
