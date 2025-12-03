@@ -27,7 +27,7 @@ const STROKE_WIDTH = 8;
 const HALF_SIZE = CIRCLE_SIZE / 2;
 
 const pulse = async () => {
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 15; i++) {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     await new Promise((resolve) => setTimeout(resolve, 200));
   }
