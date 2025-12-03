@@ -9,20 +9,58 @@ const pointsConfig = {
 const randomId = (prefix: string) =>
   `${prefix}-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 8)}`;
 
-const isComplete = (match: Match) =>
-  match.homeScore !== undefined && match.awayScore !== undefined;
+const isKnockoutStage = (stage: MatchStage) => stage !== 'roundRobin';
+
+const isComplete = (match: Match) => {
+  if (match.homeScore === undefined || match.awayScore === undefined) return false;
+  const tied = (match.homeScore ?? 0) === (match.awayScore ?? 0);
+  if (!isKnockoutStage(match.stage)) return true;
+  if (!tied) return true;
+  if (match.resolvedBy === 'extraTime') {
+    if (
+      match.extraTimeHome !== undefined &&
+      match.extraTimeAway !== undefined &&
+      match.extraTimeHome !== match.extraTimeAway
+    ) {
+      return true;
+    }
+    return false;
+  }
+  if (match.resolvedBy === 'penalties') {
+    return (
+      match.penHome !== undefined &&
+      match.penAway !== undefined &&
+      match.penHome !== match.penAway
+    );
+  }
+  return false;
+};
 
 const winnerId = (match: Match): string | undefined => {
   if (!isComplete(match)) return undefined;
-  if ((match.homeScore ?? 0) === (match.awayScore ?? 0)) return undefined;
-  return (match.homeScore ?? 0) > (match.awayScore ?? 0) ? match.homeId : match.awayId;
+  const baseHome = match.homeScore ?? 0;
+  const baseAway = match.awayScore ?? 0;
+  if (!isKnockoutStage(match.stage)) {
+    if (baseHome === baseAway) return undefined;
+    return baseHome > baseAway ? match.homeId : match.awayId;
+  }
+  if (baseHome !== baseAway) return baseHome > baseAway ? match.homeId : match.awayId;
+  if (match.resolvedBy === 'extraTime' && match.extraTimeHome !== undefined && match.extraTimeAway !== undefined) {
+    return match.extraTimeHome > match.extraTimeAway ? match.homeId : match.awayId;
+  }
+  if (match.resolvedBy === 'penalties' && match.penHome !== undefined && match.penAway !== undefined) {
+    return match.penHome > match.penAway ? match.homeId : match.awayId;
+  }
+  return undefined;
 };
 
 const loserId = (match: Match): string | undefined => {
-  if (!isComplete(match)) return undefined;
-  if ((match.homeScore ?? 0) === (match.awayScore ?? 0)) return undefined;
-  return (match.homeScore ?? 0) > (match.awayScore ?? 0) ? match.awayId : match.homeId;
+  const winner = winnerId(match);
+  if (!winner) return undefined;
+  return winner === match.homeId ? match.awayId : match.homeId;
 };
+
+export const matchWinnerId = (match: Match) => winnerId(match);
 
 export const generateRoundRobin = (teams: Team[]): Match[] => {
   if (teams.length < 2) return [];
@@ -54,6 +92,30 @@ export const generateRoundRobin = (teams: Team[]): Match[] => {
   return matches;
 };
 
+const effectiveScores = (match: Match) => {
+  const regularHome = match.homeScore ?? 0;
+  const regularAway = match.awayScore ?? 0;
+  const etHome =
+    match.resolvedBy === 'extraTime' && match.extraTimeHome !== undefined
+      ? match.extraTimeHome
+      : 0;
+  const etAway =
+    match.resolvedBy === 'extraTime' && match.extraTimeAway !== undefined
+      ? match.extraTimeAway
+      : 0;
+  const penHome =
+    match.resolvedBy === 'penalties' && match.penHome !== undefined ? match.penHome : 0;
+  const penAway =
+    match.resolvedBy === 'penalties' && match.penAway !== undefined ? match.penAway : 0;
+  const totalHome = regularHome + etHome;
+  const totalAway = regularAway + etAway;
+  const decisionHome =
+    match.resolvedBy === 'penalties' ? penHome : match.resolvedBy === 'extraTime' ? etHome : regularHome;
+  const decisionAway =
+    match.resolvedBy === 'penalties' ? penAway : match.resolvedBy === 'extraTime' ? etAway : regularAway;
+  return { regularHome, regularAway, totalHome, totalAway, decisionHome, decisionAway };
+};
+
 export const calculateTable = (teams: Team[], matches: Match[]): TableRow[] => {
   const base: Record<string, TableRow> = {};
   teams.forEach((team) => {
@@ -77,8 +139,9 @@ export const calculateTable = (teams: Team[], matches: Match[]): TableRow[] => {
     const homeRow = base[match.homeId];
     const awayRow = base[match.awayId];
     if (!homeRow || !awayRow) return;
-    const homeGoals = match.homeScore ?? 0;
-    const awayGoals = match.awayScore ?? 0;
+    const { totalHome, totalAway } = effectiveScores(match);
+    const homeGoals = totalHome;
+    const awayGoals = totalAway;
     homeRow.played += 1;
     awayRow.played += 1;
     homeRow.goalsFor += homeGoals;
@@ -114,8 +177,9 @@ export const calculateTable = (teams: Team[], matches: Match[]): TableRow[] => {
       const involvesA = match.homeId === a.teamId || match.awayId === a.teamId;
       const involvesB = match.homeId === b.teamId || match.awayId === b.teamId;
       if (!(involvesA && involvesB)) return;
-      const homeScore = match.homeScore ?? 0;
-      const awayScore = match.awayScore ?? 0;
+      const { decisionHome, decisionAway } = effectiveScores(match);
+      const homeScore = decisionHome;
+      const awayScore = decisionAway;
       const aIsHome = match.homeId === a.teamId;
       const aGoals = aIsHome ? homeScore : awayScore;
       const bGoals = aIsHome ? awayScore : homeScore;

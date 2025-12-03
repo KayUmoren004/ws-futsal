@@ -25,11 +25,19 @@ const TournamentContext = createContext<{
   addPlayer: (teamId: string, name: string) => void;
   transferPlayer: (playerId: string, fromTeamId: string, toTeamId: string) => void;
   updateMatchScore: (matchId: string, homeScore?: number, awayScore?: number) => void;
+  resolveTie: (
+    matchId: string,
+    method: 'extraTime' | 'penalties',
+    home: number,
+    away: number,
+  ) => void;
+  setMatchDuration: (matchId: string, seconds: number) => void;
   resetNight: () => void;
   renameNight: (title: string) => void;
   setCurrentNight: (id: string) => void;
   attachMatchToTimer: (matchId?: string) => void;
   startNight: (title?: string) => void;
+  resetAllData: () => void | Promise<void>;
 }>({
   state: { nights: [], loading: true },
   addTeam: () => {},
@@ -37,11 +45,14 @@ const TournamentContext = createContext<{
   addPlayer: () => {},
   transferPlayer: () => {},
   updateMatchScore: () => {},
+  resolveTie: () => {},
+  setMatchDuration: () => {},
   resetNight: () => {},
   renameNight: () => {},
   setCurrentNight: () => {},
   attachMatchToTimer: () => {},
   startNight: () => {},
+  resetAllData: () => {},
 });
 
 const reducer = (state: State, action: Action): State => {
@@ -67,6 +78,14 @@ const STORAGE_KEY = 'futsal:nights';
 
 const randomId = (prefix: string) =>
   `${prefix}-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 8)}`;
+
+const uniqueColor = (preferred: string, teams: Team[]) => {
+  const used = new Set(teams.map((t) => t.color));
+  if (!used.has(preferred)) return preferred;
+  const palette = ['#F97316', '#2563EB', '#0EA5E9', '#22C55E', '#F43F5E', '#8B5CF6'];
+  const free = palette.find((color) => !used.has(color));
+  return free ?? preferred;
+};
 
 const findPlayer = (team: Team, playerId: string) => team.players.find((p) => p.id === playerId);
 
@@ -128,10 +147,11 @@ export const TournamentProvider = ({ children }: { children: React.ReactNode }) 
     (team: { name: string; color: string }) => {
       if (!currentNight) return;
       if (currentNight.teams.length >= 6) return;
+      const safeColor = uniqueColor(team.color, currentNight.teams);
       const newTeam: Team = {
         id: randomId('team'),
         name: team.name,
-        color: team.color,
+        color: safeColor,
         players: [],
       };
       const teams = [...currentNight.teams, newTeam];
@@ -144,9 +164,14 @@ export const TournamentProvider = ({ children }: { children: React.ReactNode }) 
   const updateTeam = useCallback(
     (id: string, data: Partial<Pick<Team, 'name' | 'color'>>) => {
       if (!currentNight) return;
-      const teams = currentNight.teams.map((team) =>
-        team.id === id ? { ...team, ...data } : team,
-      );
+      const teams = currentNight.teams.map((team) => {
+        if (team.id !== id) return team;
+        const incomingColor =
+          data.color && data.color !== team.color
+            ? uniqueColor(data.color, currentNight.teams.filter((t) => t.id !== id))
+            : data.color ?? team.color;
+        return { ...team, ...data, color: incomingColor };
+      });
       updateNight({ ...currentNight, teams });
     },
     [currentNight, updateNight],
@@ -189,19 +214,68 @@ export const TournamentProvider = ({ children }: { children: React.ReactNode }) 
   const updateMatchScore = useCallback(
     (matchId: string, homeScore?: number, awayScore?: number) => {
       if (!currentNight) return;
-      const matches: Match[] = currentNight.matches.map((match) =>
-        match.id === matchId
-          ? {
-              ...match,
-              homeScore,
-              awayScore,
-              status:
-                homeScore === undefined || awayScore === undefined ? 'scheduled' : 'completed',
-            }
-          : match,
-      );
+      const matches: Match[] = currentNight.matches.map((match) => {
+        if (match.id !== matchId) return match;
+        const tie =
+          homeScore !== undefined &&
+          awayScore !== undefined &&
+          homeScore === awayScore &&
+          match.stage !== 'roundRobin';
+        const status =
+          homeScore === undefined || awayScore === undefined || tie ? 'scheduled' : 'completed';
+        return {
+          ...match,
+          homeScore,
+          awayScore,
+          extraTimeHome: tie ? undefined : match.extraTimeHome,
+          extraTimeAway: tie ? undefined : match.extraTimeAway,
+          penHome: tie ? undefined : match.penHome,
+          penAway: tie ? undefined : match.penAway,
+          resolvedBy: tie ? undefined : match.resolvedBy,
+          status,
+        };
+      });
       const synced = syncKnockouts(currentNight.teams, matches);
       updateNight({ ...currentNight, matches: synced });
+    },
+    [currentNight, updateNight],
+  );
+
+  const resolveTie = useCallback(
+    (matchId: string, method: 'extraTime' | 'penalties', home: number, away: number) => {
+      if (!currentNight) return;
+      if (home === away) return;
+      const matches: Match[] = currentNight.matches.map((match) => {
+        if (match.id !== matchId) return match;
+        const next: Match = {
+          ...match,
+          status: 'completed',
+          resolvedBy: method,
+        };
+        if (method === 'extraTime') {
+          next.extraTimeHome = home;
+          next.extraTimeAway = away;
+          next.penHome = undefined;
+          next.penAway = undefined;
+        } else {
+          next.penHome = home;
+          next.penAway = away;
+        }
+        return next;
+      });
+      const synced = syncKnockouts(currentNight.teams, matches);
+      updateNight({ ...currentNight, matches: synced });
+    },
+    [currentNight, updateNight],
+  );
+
+  const setMatchDuration = useCallback(
+    (matchId: string, seconds: number) => {
+      if (!currentNight) return;
+      const matches = currentNight.matches.map((match) =>
+        match.id === matchId ? { ...match, durationSeconds: seconds } : match,
+      );
+      updateNight({ ...currentNight, matches });
     },
     [currentNight, updateNight],
   );
@@ -224,6 +298,17 @@ export const TournamentProvider = ({ children }: { children: React.ReactNode }) 
     },
     [currentNight],
   );
+
+  const resetAllData = useCallback(async () => {
+    const night = createGameNight('Game Night', []);
+    try {
+      await AsyncStorage.removeItem(STORAGE_KEY);
+    } catch (err) {
+      console.warn('Failed to clear storage', err);
+    }
+    dispatch({ type: 'setNights', payload: [night] });
+    dispatch({ type: 'setCurrentNight', payload: night.id });
+  }, []);
 
   const renameNight = useCallback(
     (title: string) => {
@@ -257,11 +342,14 @@ export const TournamentProvider = ({ children }: { children: React.ReactNode }) 
       addPlayer,
       transferPlayer,
       updateMatchScore,
+      resolveTie,
+      setMatchDuration,
       resetNight,
       renameNight,
       setCurrentNight,
       attachMatchToTimer,
       startNight,
+      resetAllData,
     }),
     [
       state,
@@ -271,11 +359,14 @@ export const TournamentProvider = ({ children }: { children: React.ReactNode }) 
       addPlayer,
       transferPlayer,
       updateMatchScore,
+      resolveTie,
+      setMatchDuration,
       resetNight,
       renameNight,
       setCurrentNight,
       attachMatchToTimer,
       startNight,
+      resetAllData,
     ],
   );
 

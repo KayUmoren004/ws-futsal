@@ -28,6 +28,12 @@ export interface Match {
   awayId: string;
   homeScore?: number;
   awayScore?: number;
+  extraTimeHome?: number;
+  extraTimeAway?: number;
+  penHome?: number;
+  penAway?: number;
+  resolvedBy?: 'regular' | 'extraTime' | 'penalties';
+  durationSeconds?: number;
   status: MatchStatus;
 }
 

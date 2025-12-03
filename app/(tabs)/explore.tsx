@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, SafeAreaView, StyleSheet, Text, TextInput, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
 
 import { Colors } from '@/constants/theme';
 import { useTournament } from '@/state/TournamentProvider';
@@ -13,11 +14,25 @@ const formatTime = (seconds: number) => {
 };
 
 export default function TimerScreen() {
-  const { currentNight } = useTournament();
+  const { currentNight, setMatchDuration } = useTournament();
   const [duration, setDuration] = useState(6 * 60);
   const [remaining, setRemaining] = useState(6 * 60);
   const [running, setRunning] = useState(false);
   const intervalRef = useRef<NodeJS.Timer | null>(null);
+
+  const attachedMatch = useMemo(
+    () => currentNight?.matches.find((m) => m.id === currentNight?.currentMatchId),
+    [currentNight],
+  );
+
+  useEffect(() => {
+    if (attachedMatch?.durationSeconds) {
+      setDuration(attachedMatch.durationSeconds);
+      setRemaining(attachedMatch.durationSeconds);
+      setRunning(false);
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    }
+  }, [attachedMatch?.durationSeconds]);
 
   useEffect(() => {
     if (running) {
@@ -34,6 +49,7 @@ export default function TimerScreen() {
     if (remaining === 0 && running) {
       setRunning(false);
       if (intervalRef.current) clearInterval(intervalRef.current);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     }
   }, [remaining, running]);
 
@@ -52,6 +68,7 @@ export default function TimerScreen() {
     setRemaining(value);
     setRunning(false);
     if (intervalRef.current) clearInterval(intervalRef.current);
+    if (attachedMatch) setMatchDuration(attachedMatch.id, value);
   };
 
   const reset = () => {
@@ -59,6 +76,18 @@ export default function TimerScreen() {
     setRunning(false);
     if (intervalRef.current) clearInterval(intervalRef.current);
   };
+
+  const saveCustomDuration = (minutes: number) => {
+    if (!minutes || Number.isNaN(minutes)) return;
+    const secs = minutes * 60;
+    setDuration(secs);
+    setRemaining(secs);
+    setRunning(false);
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    if (attachedMatch) setMatchDuration(attachedMatch.id, secs);
+  };
+
+  const [customMinutes, setCustomMinutes] = useState('');
 
   return (
     <SafeAreaView style={styles.container}>
@@ -73,6 +102,22 @@ export default function TimerScreen() {
         </Pressable>
         <Pressable style={styles.pill} onPress={() => setPreset(8)}>
           <Text style={styles.pillText}>8 min</Text>
+        </Pressable>
+        <Pressable style={styles.pill} onPress={() => setPreset(10)}>
+          <Text style={styles.pillText}>10 min</Text>
+        </Pressable>
+      </View>
+      <View style={styles.customRow}>
+        <TextInput
+          placeholder="Custom minutes"
+          placeholderTextColor="#64748b"
+          value={customMinutes}
+          onChangeText={setCustomMinutes}
+          keyboardType="numeric"
+          style={styles.customInput}
+        />
+        <Pressable style={styles.pill} onPress={() => saveCustomDuration(Number(customMinutes))}>
+          <Text style={styles.pillText}>Set</Text>
         </Pressable>
       </View>
       <View style={styles.row}>
@@ -90,9 +135,9 @@ export default function TimerScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0f172a', padding: 16, gap: 16 },
-  heading: { color: '#fff', fontSize: 22, fontWeight: '800' },
-  subtle: { color: '#cbd5e1' },
+  container: { flex: 1, backgroundColor: '#0b1220', padding: 16, gap: 16 },
+  heading: { color: '#e2e8f0', fontSize: 22, fontWeight: '800' },
+  subtle: { color: '#94a3b8' },
   timerBox: {
     backgroundColor: '#111827',
     borderRadius: 24,
@@ -111,11 +156,25 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 12 },
   pill: {
     backgroundColor: '#1f2937',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 999,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    borderRadius: 14,
+    minHeight: 44,
+    justifyContent: 'center',
   },
-  pillText: { color: '#e2e8f0', fontWeight: '700' },
+  pillText: { color: '#e2e8f0', fontWeight: '800' },
+  customRow: { flexDirection: 'row', gap: 12, alignItems: 'center' },
+  customInput: {
+    flex: 1,
+    backgroundColor: '#111827',
+    color: '#e2e8f0',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#1f2937',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    minHeight: 44,
+  },
   cta: {
     flex: 1,
     paddingVertical: 16,
@@ -131,6 +190,9 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 18,
     borderRadius: 16,
+    minWidth: 90,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  resetText: { color: '#e2e8f0', fontWeight: '700' },
+  resetText: { color: '#e2e8f0', fontWeight: '800' },
 });
