@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import Animated, {
   Easing,
+  interpolate,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -18,8 +19,8 @@ import Animated, {
 import { useTournament } from "@/state/TournamentProvider";
 
 const CIRCLE_SIZE = 280;
-const STROKE_WIDTH = 6;
-const RADIUS = (CIRCLE_SIZE - STROKE_WIDTH) / 2;
+const STROKE_WIDTH = 8;
+const HALF_SIZE = CIRCLE_SIZE / 2;
 
 const formatTime = (seconds: number) => {
   const mins = Math.floor(seconds / 60)
@@ -29,7 +30,9 @@ const formatTime = (seconds: number) => {
   return `${mins}:${secs}`;
 };
 
-// Circular progress using two half-circles
+// Circular countdown progress - REVERSED
+// Circle FILLS UP as time runs out (shows elapsed time)
+// Empty at start → Full when timer ends
 const CircularProgress = ({
   progress,
   isRunning,
@@ -37,56 +40,56 @@ const CircularProgress = ({
   progress: number;
   isRunning: boolean;
 }) => {
-  const rotation = useSharedValue(0);
+  // elapsed = 1 - progress (how much time has passed)
+  const elapsed = useSharedValue(1 - progress);
 
   useEffect(() => {
-    rotation.value = withTiming(progress * 360, {
-      duration: 300,
-      easing: Easing.out(Easing.ease),
+    elapsed.value = withTiming(1 - progress, {
+      duration: 200,
+      easing: Easing.linear,
     });
-  }, [progress, rotation]);
+  }, [progress, elapsed]);
 
-  const firstHalfStyle = useAnimatedStyle(() => {
-    const rotate = Math.min(rotation.value, 180);
-    return {
-      transform: [{ rotate: `${rotate}deg` }],
-    };
+  const fillColor = isRunning ? "#3b82f6" : "#52525b";
+
+  // Right arc: fills first as time passes (0% to 50% elapsed)
+  const rightArcRotation = useAnimatedStyle(() => {
+    // elapsed 0 → -180° (hidden), elapsed 0.5+ → 0° (visible)
+    const deg = interpolate(elapsed.value, [0, 0.5, 1], [-180, 0, 0]);
+    return { transform: [{ rotate: `${deg}deg` }] };
   });
 
-  const secondHalfStyle = useAnimatedStyle(() => {
-    const rotate = Math.max(rotation.value - 180, 0);
-    return {
-      transform: [{ rotate: `${rotate}deg` }],
-      opacity: rotation.value > 180 ? 1 : 0,
-    };
+  // Left arc: fills second (50% to 100% elapsed)
+  const leftArcRotation = useAnimatedStyle(() => {
+    // elapsed 0-0.5 → -180° (hidden), elapsed 1 → 0° (visible)
+    const deg = interpolate(elapsed.value, [0, 0.5, 1], [-180, -180, 0]);
+    return { transform: [{ rotate: `${deg}deg` }] };
   });
-
-  const progressColor = isRunning ? "#3b82f6" : "#71717a";
 
   return (
-    <View style={styles.circleContainer}>
-      {/* Background circle */}
-      <View style={styles.circleBackground} />
+    <View style={styles.progressContainer}>
+      {/* Background track - always visible */}
+      <View style={styles.track} />
 
-      {/* Progress - First half (0-180 degrees) */}
-      <View style={styles.halfCircleContainer}>
+      {/* Right half - fills from top going clockwise */}
+      <View style={styles.clipRight}>
         <Animated.View
           style={[
-            styles.halfCircle,
-            { borderColor: progressColor },
-            firstHalfStyle,
+            styles.arcCircle,
+            { borderColor: fillColor },
+            rightArcRotation,
           ]}
         />
       </View>
 
-      {/* Progress - Second half (180-360 degrees) */}
-      <View style={[styles.halfCircleContainer, styles.secondHalf]}>
+      {/* Left half - fills from bottom going clockwise */}
+      <View style={styles.clipLeft}>
         <Animated.View
           style={[
-            styles.halfCircle,
-            styles.secondHalfCircle,
-            { borderColor: progressColor },
-            secondHalfStyle,
+            styles.arcCircle,
+            styles.arcCircleLeft,
+            { borderColor: fillColor },
+            leftArcRotation,
           ]}
         />
       </View>
@@ -320,45 +323,52 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  circleContainer: {
+  // Main container - rotated so 0° is at 12 o'clock
+  progressContainer: {
     width: CIRCLE_SIZE,
     height: CIRCLE_SIZE,
-    position: "relative",
+    transform: [{ rotate: "-90deg" }],
   },
-  circleBackground: {
+  // Gray background track
+  track: {
     position: "absolute",
     width: CIRCLE_SIZE,
     height: CIRCLE_SIZE,
-    borderRadius: CIRCLE_SIZE / 2,
+    borderRadius: HALF_SIZE,
     borderWidth: STROKE_WIDTH,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
-  halfCircleContainer: {
+  // Right clip - shows right side of contained elements
+  clipRight: {
     position: "absolute",
-    width: CIRCLE_SIZE / 2,
+    top: 0,
+    left: HALF_SIZE,
+    width: HALF_SIZE,
     height: CIRCLE_SIZE,
-    left: CIRCLE_SIZE / 2,
     overflow: "hidden",
   },
-  halfCircle: {
+  // Left clip - shows left side of contained elements
+  clipLeft: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: HALF_SIZE,
+    height: CIRCLE_SIZE,
+    overflow: "hidden",
+  },
+  // The arc circle - positioned with center at clip edge
+  arcCircle: {
+    position: "absolute",
+    top: 0,
+    left: -HALF_SIZE, // Center at left edge of right clip
     width: CIRCLE_SIZE,
     height: CIRCLE_SIZE,
-    borderRadius: CIRCLE_SIZE / 2,
+    borderRadius: HALF_SIZE,
     borderWidth: STROKE_WIDTH,
-    borderColor: "#3b82f6",
-    borderLeftColor: "transparent",
-    borderBottomColor: "transparent",
-    position: "absolute",
-    right: 0,
-    transformOrigin: "center center",
   },
-  secondHalf: {
-    left: 0,
-    transform: [{ rotate: "180deg" }],
-  },
-  secondHalfCircle: {
-    borderLeftColor: "transparent",
-    borderBottomColor: "transparent",
+  // Position adjustment for left clip's arc
+  arcCircleLeft: {
+    left: 0, // Center at right edge of left clip
   },
   timerCenter: {
     position: "absolute",

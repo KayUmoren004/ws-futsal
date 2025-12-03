@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState } from "react";
 import {
   FlatList,
   Pressable,
@@ -7,31 +7,18 @@ import {
   Text,
   TextInput,
   View,
-} from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+} from "react-native";
+import { router, useLocalSearchParams } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 
-import { Colors } from '@/constants/theme';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { useTournament } from '@/state/TournamentProvider';
-
-const baseBg = 'hsl(0 0% 3.9%)';
-const cardBg = 'hsl(0 0% 3.9%)';
-const borderCol = 'hsl(0 0% 14.9%)';
-
-const chipStyle = (color: string) => ({
-  backgroundColor: color,
-  width: 18,
-  height: 18,
-  borderRadius: 12,
-  marginRight: 8,
-});
+import { useTournament } from "@/state/TournamentProvider";
 
 export default function AddPlayersModal() {
   const { teamId } = useLocalSearchParams<{ teamId: string }>();
   const { state, currentNight, addPlayer, addExistingPlayer } = useTournament();
 
-  const [searchValue, setSearchValue] = useState('');
-  const [newPlayerName, setNewPlayerName] = useState('');
+  const [searchValue, setSearchValue] = useState("");
+  const [newPlayerName, setNewPlayerName] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const team = currentNight?.teams.find((t) => t.id === teamId);
@@ -56,9 +43,11 @@ export default function AddPlayersModal() {
       .filter((p) => p.name.toLowerCase().includes(term))
       .map((p) => ({
         ...p,
-        isAssigned: assignedPlayerIds.has(p.id) && !currentTeamPlayerIds.has(p.id),
+        isAssigned:
+          assignedPlayerIds.has(p.id) && !currentTeamPlayerIds.has(p.id),
         isInCurrentTeam: currentTeamPlayerIds.has(p.id),
-      }));
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [searchValue, state.globalPlayers, team, currentNight, assignedPlayerIds]);
 
   const handleTogglePlayer = (id: string) => {
@@ -82,17 +71,19 @@ export default function AddPlayersModal() {
   const handleAddNewPlayer = () => {
     if (newPlayerName.trim() && teamId) {
       addPlayer(teamId, newPlayerName);
-      setNewPlayerName('');
+      setNewPlayerName("");
     }
   };
 
   if (!team) {
     return (
       <SafeAreaView style={styles.container}>
-        <Text style={styles.errorText}>Team not found</Text>
-        <Pressable onPress={() => router.back()}>
-          <Text style={styles.linkText}>Go back</Text>
-        </Pressable>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Team not found</Text>
+          <Pressable style={styles.backButton} onPress={() => router.back()}>
+            <Text style={styles.backButtonText}>Go back</Text>
+          </Pressable>
+        </View>
       </SafeAreaView>
     );
   }
@@ -103,94 +94,121 @@ export default function AddPlayersModal() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.row}>
-          <View style={chipStyle(team.color)} />
-          <Text style={styles.title}>Add Players to {team.name}</Text>
+        <View style={styles.headerLeft}>
+          <View style={[styles.colorDot, { backgroundColor: team.color }]} />
+          <Text style={styles.title}>Add to {team.name}</Text>
         </View>
         <Pressable onPress={() => router.back()} hitSlop={12}>
-          <IconSymbol name="xmark" size={24} color="#e2e8f0" />
+          <Ionicons name="close" size={24} color="#71717a" />
         </Pressable>
       </View>
 
       {/* Search */}
-      <TextInput
-        style={styles.searchInput}
-        placeholder="Search players..."
-        placeholderTextColor="#64748b"
-        value={searchValue}
-        onChangeText={setSearchValue}
-        autoFocus
-      />
-
-      {/* Add new player section */}
-      <View style={styles.addNewSection}>
-        <Text style={styles.subtle}>Can't find a player? Add them:</Text>
-        <View style={styles.row}>
+      <View style={styles.searchSection}>
+        <View style={styles.searchRow}>
+          <Ionicons
+            name="search"
+            size={18}
+            color="#52525b"
+            style={styles.searchIcon}
+          />
           <TextInput
-            style={[styles.input, styles.flex]}
-            placeholder="New player name"
-            placeholderTextColor="#475569"
+            style={styles.searchInput}
+            placeholder="Search players..."
+            placeholderTextColor="#52525b"
+            value={searchValue}
+            onChangeText={setSearchValue}
+          />
+        </View>
+      </View>
+
+      {/* Add new player */}
+      <View style={styles.addNewSection}>
+        <Text style={styles.label}>Create New Player</Text>
+        <View style={styles.addNewRow}>
+          <TextInput
+            style={[styles.input, { flex: 1 }]}
+            placeholder="Player name"
+            placeholderTextColor="#52525b"
             value={newPlayerName}
             onChangeText={setNewPlayerName}
             onSubmitEditing={handleAddNewPlayer}
           />
           <Pressable style={styles.addButton} onPress={handleAddNewPlayer}>
-            <Text style={styles.addButtonText}>Add</Text>
+            <Ionicons name="add" size={20} color="#09090b" />
           </Pressable>
         </View>
       </View>
 
       {/* Player list */}
-      <FlatList
-        data={availablePlayers}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={{ paddingBottom: 100 }}
-        renderItem={({ item }) => {
-          const isSelected = selectedIds.has(item.id);
-          const isDisabled = item.isAssigned || item.isInCurrentTeam;
+      <View style={styles.listSection}>
+        <Text style={styles.label}>Available Players</Text>
+        <FlatList
+          data={availablePlayers}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item }) => {
+            const isSelected = selectedIds.has(item.id);
+            const isDisabled = item.isAssigned || item.isInCurrentTeam;
 
-          return (
-            <Pressable
-              style={[
-                styles.playerRow,
-                isSelected && styles.playerRowActive,
-                isDisabled && styles.playerRowDisabled,
-              ]}
-              onPress={() => !isDisabled && handleTogglePlayer(item.id)}
-              disabled={isDisabled}>
-              <View style={styles.row}>
-                <View
-                  style={[
-                    styles.checkbox,
-                    isSelected && styles.checkboxActive,
-                    isDisabled && styles.checkboxDisabled,
-                  ]}>
-                  {isSelected && <IconSymbol name="checkmark" size={14} color="#0b1220" />}
+            return (
+              <Pressable
+                style={[styles.playerRow, isDisabled && styles.playerRowDisabled]}
+                onPress={() => !isDisabled && handleTogglePlayer(item.id)}
+                disabled={isDisabled}
+              >
+                <View style={styles.playerLeft}>
+                  <View
+                    style={[
+                      styles.checkbox,
+                      isSelected && styles.checkboxActive,
+                      isDisabled && styles.checkboxDisabled,
+                    ]}
+                  >
+                    {isSelected && (
+                      <Ionicons name="checkmark" size={14} color="#09090b" />
+                    )}
+                  </View>
+                  <Text
+                    style={[
+                      styles.playerName,
+                      isDisabled && styles.playerNameDisabled,
+                    ]}
+                  >
+                    {item.name}
+                  </Text>
                 </View>
-                <Text style={[styles.playerName, isDisabled && { color: '#64748b' }]}>
-                  {item.name}
-                </Text>
-              </View>
-              {item.isInCurrentTeam && (
-                <Text style={styles.alreadyInTeam}>Already in team</Text>
-              )}
-              {item.isAssigned && !item.isInCurrentTeam && (
-                <Text style={styles.assignedLabel}>In another team</Text>
-              )}
-            </Pressable>
-          );
-        }}
-        ListEmptyComponent={<Text style={styles.empty}>No players found</Text>}
-      />
+                {item.isInCurrentTeam && (
+                  <Text style={styles.statusInTeam}>In team</Text>
+                )}
+                {item.isAssigned && !item.isInCurrentTeam && (
+                  <Text style={styles.statusAssigned}>Assigned</Text>
+                )}
+              </Pressable>
+            );
+          }}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>
+              {searchValue ? "No players found" : "No players in library"}
+            </Text>
+          }
+        />
+      </View>
 
-      {/* Footer with confirm button */}
+      {/* Footer */}
       <View style={styles.footer}>
         <Pressable
-          style={[styles.confirmButton, selectedCount === 0 && { opacity: 0.5 }]}
+          style={[
+            styles.confirmButton,
+            selectedCount === 0 && styles.confirmButtonDisabled,
+          ]}
           onPress={handleConfirm}
-          disabled={selectedCount === 0}>
+          disabled={selectedCount === 0}
+        >
           <Text style={styles.confirmButtonText}>
-            Add {selectedCount} Player{selectedCount !== 1 ? 's' : ''}
+            Add {selectedCount > 0 ? selectedCount : ""} Player
+            {selectedCount !== 1 ? "s" : ""}
           </Text>
         </Pressable>
       </View>
@@ -201,153 +219,189 @@ export default function AddPlayersModal() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: baseBg,
+    backgroundColor: "#09090b",
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderColor: borderCol,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 20,
+    paddingBottom: 16,
   },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  colorDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#e2e8f0',
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#fafafa",
+    letterSpacing: -0.3,
   },
-  searchInput: {
-    margin: 16,
-    borderWidth: 1,
-    borderColor: borderCol,
+  searchSection: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  searchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.04)",
     borderRadius: 12,
     paddingHorizontal: 14,
-    paddingVertical: 12,
-    backgroundColor: cardBg,
-    color: '#e2e8f0',
+  },
+  searchIcon: {
+    marginRight: 10,
+  },
+  searchInput: {
+    flex: 1,
+    height: 48,
+    color: "#fafafa",
     fontSize: 16,
   },
   addNewSection: {
-    marginHorizontal: 16,
-    marginBottom: 12,
-    gap: 8,
+    paddingHorizontal: 20,
+    marginBottom: 20,
   },
-  subtle: {
-    color: '#94a3b8',
-    fontSize: 13,
+  label: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#52525b",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 10,
+  },
+  addNewRow: {
+    flexDirection: "row",
+    gap: 10,
   },
   input: {
-    borderWidth: 1,
-    borderColor: borderCol,
+    height: 48,
+    backgroundColor: "rgba(255,255,255,0.04)",
     borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    backgroundColor: cardBg,
-    color: '#e2e8f0',
-    minHeight: 44,
+    paddingHorizontal: 16,
+    color: "#fafafa",
+    fontSize: 16,
   },
-  flex: { flex: 1 },
   addButton: {
-    backgroundColor: Colors.light.tint,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    width: 48,
+    height: 48,
+    backgroundColor: "#3b82f6",
     borderRadius: 12,
-    minHeight: 44,
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
-  addButtonText: {
-    color: '#0b1220',
-    fontWeight: '800',
+  listSection: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  listContent: {
+    paddingBottom: 100,
   },
   playerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderColor: borderCol,
-  },
-  playerRowActive: {
-    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(255,255,255,0.06)",
   },
   playerRowDisabled: {
     opacity: 0.5,
+  },
+  playerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
   checkbox: {
     width: 22,
     height: 22,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: '#64748b',
-    marginRight: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: "#3f3f46",
+    alignItems: "center",
+    justifyContent: "center",
   },
   checkboxActive: {
-    backgroundColor: Colors.light.tint,
-    borderColor: Colors.light.tint,
+    backgroundColor: "#3b82f6",
+    borderColor: "#3b82f6",
   },
   checkboxDisabled: {
-    borderColor: '#475569',
+    borderColor: "#27272a",
   },
   playerName: {
-    fontWeight: '700',
-    color: '#e2e8f0',
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#fafafa",
   },
-  assignedLabel: {
+  playerNameDisabled: {
+    color: "#52525b",
+  },
+  statusInTeam: {
     fontSize: 12,
-    color: '#f59e0b',
-    fontWeight: '600',
+    fontWeight: "500",
+    color: "#22c55e",
   },
-  alreadyInTeam: {
+  statusAssigned: {
     fontSize: 12,
-    color: '#22c55e',
-    fontWeight: '600',
+    fontWeight: "500",
+    color: "#f59e0b",
   },
-  empty: {
-    color: '#94a3b8',
+  emptyText: {
+    color: "#52525b",
+    fontSize: 14,
     paddingVertical: 20,
-    textAlign: 'center',
+    textAlign: "center",
   },
   footer: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    padding: 16,
-    paddingBottom: 32,
-    backgroundColor: baseBg,
-    borderTopWidth: 1,
-    borderColor: borderCol,
+    padding: 20,
+    paddingBottom: 36,
+    backgroundColor: "#09090b",
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "rgba(255,255,255,0.06)",
   },
   confirmButton: {
-    backgroundColor: Colors.light.tint,
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
+    height: 54,
+    backgroundColor: "#3b82f6",
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  confirmButtonDisabled: {
+    backgroundColor: "#27272a",
   },
   confirmButtonText: {
-    color: '#0b1220',
-    fontWeight: '800',
-    fontSize: 16,
+    fontSize: 17,
+    fontWeight: "600",
+    color: "#fafafa",
+  },
+  errorContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 16,
   },
   errorText: {
-    color: '#e2e8f0',
     fontSize: 16,
-    textAlign: 'center',
-    marginTop: 40,
+    color: "#71717a",
   },
-  linkText: {
-    color: Colors.light.tint,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginTop: 16,
+  backButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  backButtonText: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#3b82f6",
   },
 });
-

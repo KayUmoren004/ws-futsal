@@ -1,29 +1,16 @@
-import React from 'react';
+import React, { useState } from "react";
 import {
   FlatList,
   Pressable,
   SafeAreaView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
-} from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+} from "react-native";
+import { router, useLocalSearchParams } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 
-import { Colors } from '@/constants/theme';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { useTournament } from '@/state/TournamentProvider';
-
-const baseBg = 'hsl(0 0% 3.9%)';
-const borderCol = 'hsl(0 0% 14.9%)';
-
-const chipStyle = (color: string) => ({
-  backgroundColor: color,
-  width: 18,
-  height: 18,
-  borderRadius: 12,
-  marginRight: 8,
-});
+import { useTournament } from "@/state/TournamentProvider";
 
 export default function ViewPlayersModal() {
   const { teamId } = useLocalSearchParams<{ teamId: string }>();
@@ -32,7 +19,9 @@ export default function ViewPlayersModal() {
   const team = currentNight?.teams.find((t) => t.id === teamId);
   const otherTeams = currentNight?.teams.filter((t) => t.id !== teamId) ?? [];
 
-  const [transferringPlayer, setTransferringPlayer] = React.useState<string | null>(null);
+  const [transferringPlayer, setTransferringPlayer] = useState<string | null>(
+    null
+  );
 
   const handleTransferTo = (toTeamId: string) => {
     if (transferringPlayer && teamId) {
@@ -44,100 +33,148 @@ export default function ViewPlayersModal() {
   if (!team) {
     return (
       <SafeAreaView style={styles.container}>
-        <Text style={styles.errorText}>Team not found</Text>
-        <Pressable onPress={() => router.back()}>
-          <Text style={styles.linkText}>Go back</Text>
-        </Pressable>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Team not found</Text>
+          <Pressable style={styles.backButton} onPress={() => router.back()}>
+            <Text style={styles.backButtonText}>Go back</Text>
+          </Pressable>
+        </View>
       </SafeAreaView>
     );
   }
 
-  // If transferring, show team selection
+  // Transfer destination selection view
   if (transferringPlayer) {
     const player = team.players.find((p) => p.id === transferringPlayer);
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.title}>Transfer {player?.name}</Text>
-          <Pressable onPress={() => setTransferringPlayer(null)} hitSlop={12}>
-            <IconSymbol name="xmark.circle.fill" size={24} color="#e2e8f0" />
+          <Pressable
+            onPress={() => setTransferringPlayer(null)}
+            hitSlop={12}
+          >
+            <Ionicons name="close" size={24} color="#71717a" />
           </Pressable>
         </View>
-        <Text style={styles.subtitle}>Select destination team:</Text>
-        <FlatList
-          data={otherTeams}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.teamRow}
-              onPress={() => handleTransferTo(item.id)}
-              hitSlop={8}>
-              <View style={styles.row}>
-                <View style={chipStyle(item.color)} />
-                <Text style={styles.teamName}>{item.name}</Text>
-              </View>
-              <IconSymbol name="arrow.right" size={16} color="#94a3b8" />
-            </TouchableOpacity>
+
+        <View style={styles.content}>
+          <Text style={styles.label}>Select Destination</Text>
+
+          {otherTeams.length === 0 ? (
+            <Text style={styles.emptyText}>
+              Add another team to transfer players
+            </Text>
+          ) : (
+            <FlatList
+              data={otherTeams}
+              keyExtractor={(item) => item.id}
+              showsVerticalScrollIndicator={false}
+              renderItem={({ item }) => (
+                <Pressable
+                  style={styles.teamRow}
+                  onPress={() => handleTransferTo(item.id)}
+                >
+                  <View style={styles.teamLeft}>
+                    <View
+                      style={[styles.colorDot, { backgroundColor: item.color }]}
+                    />
+                    <Text style={styles.teamName}>{item.name}</Text>
+                  </View>
+                  <Ionicons name="arrow-forward" size={18} color="#52525b" />
+                </Pressable>
+              )}
+            />
           )}
-          ListEmptyComponent={
-            <Text style={styles.empty}>Add another team to transfer players.</Text>
-          }
-        />
-        <Pressable style={styles.cancelButton} onPress={() => setTransferringPlayer(null)}>
-          <Text style={styles.cancelButtonText}>Cancel</Text>
-        </Pressable>
+        </View>
+
+        <View style={styles.footer}>
+          <Pressable
+            style={styles.cancelButton}
+            onPress={() => setTransferringPlayer(null)}
+          >
+            <Text style={styles.cancelButtonText}>Cancel</Text>
+          </Pressable>
+        </View>
       </SafeAreaView>
     );
   }
 
+  // Main players list view
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.row}>
-          <View style={chipStyle(team.color)} />
-          <Text style={styles.title}>{team.name} Players</Text>
+        <View style={styles.headerLeft}>
+          <View style={[styles.colorDot, { backgroundColor: team.color }]} />
+          <Text style={styles.title}>{team.name}</Text>
         </View>
         <Pressable onPress={() => router.back()} hitSlop={12}>
-          <IconSymbol name="xmark.circle.fill" size={24} color="#e2e8f0" />
+          <Ionicons name="close" size={24} color="#71717a" />
         </Pressable>
       </View>
 
-      {team.players.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.empty}>No players added yet.</Text>
-          <Pressable
-            style={styles.addButton}
-            onPress={() => {
-              router.back();
-              setTimeout(() => {
-                router.push({
-                  pathname: '/add-players-modal',
+      <View style={styles.content}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.label}>Players</Text>
+          <Text style={styles.countBadge}>{team.players.length}</Text>
+        </View>
+
+        {team.players.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="people-outline" size={48} color="#27272a" />
+            <Text style={styles.emptyText}>No players yet</Text>
+            <Pressable
+              style={styles.addPlayersButton}
+              onPress={() => {
+                router.replace({
+                  pathname: "/add-players-modal",
                   params: { teamId },
                 });
-              }, 300);
-            }}>
-            <Text style={styles.addButtonText}>Add Players</Text>
+              }}
+            >
+              <Ionicons name="add" size={18} color="#fafafa" />
+              <Text style={styles.addPlayersButtonText}>Add Players</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <FlatList
+            data={[...team.players].sort((a, b) => a.name.localeCompare(b.name))}
+            keyExtractor={(item) => item.id}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.listContent}
+            renderItem={({ item }) => (
+              <Pressable
+                style={styles.playerRow}
+                onPress={() => setTransferringPlayer(item.id)}
+              >
+                <Text style={styles.playerName}>{item.name}</Text>
+                <View style={styles.transferHint}>
+                  <Text style={styles.transferHintText}>Transfer</Text>
+                  <Ionicons name="arrow-forward" size={14} color="#52525b" />
+                </View>
+              </Pressable>
+            )}
+          />
+        )}
+      </View>
+
+      {/* Footer action */}
+      {team.players.length > 0 && (
+        <View style={styles.footer}>
+          <Pressable
+            style={styles.primaryButton}
+            onPress={() => {
+              router.replace({
+                pathname: "/add-players-modal",
+                params: { teamId },
+              });
+            }}
+          >
+            <Ionicons name="add" size={20} color="#09090b" />
+            <Text style={styles.primaryButtonText}>Add More Players</Text>
           </Pressable>
         </View>
-      ) : (
-        <FlatList
-          data={team.players}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={{ paddingBottom: 20 }}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.playerRow}
-              onPress={() => setTransferringPlayer(item.id)}
-              hitSlop={8}>
-              <Text style={styles.playerName}>{item.name}</Text>
-              <View style={styles.row}>
-                <Text style={styles.transferHint}>Transfer</Text>
-                <IconSymbol name="arrow.right" size={14} color="#94a3b8" />
-              </View>
-            </TouchableOpacity>
-          )}
-        />
       )}
     </SafeAreaView>
   );
@@ -146,107 +183,175 @@ export default function ViewPlayersModal() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: baseBg,
+    backgroundColor: "#09090b",
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderColor: borderCol,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 20,
+    paddingBottom: 16,
   },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  colorDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#e2e8f0',
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#fafafa",
+    letterSpacing: -0.3,
   },
-  subtitle: {
-    fontSize: 14,
-    color: '#94a3b8',
-    padding: 16,
-    paddingBottom: 8,
+  content: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 12,
+  },
+  label: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#52525b",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  countBadge: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#3b82f6",
+    backgroundColor: "rgba(59, 130, 246, 0.1)",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    overflow: "hidden",
+  },
+  listContent: {
+    paddingBottom: 100,
   },
   playerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderColor: borderCol,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(255,255,255,0.06)",
   },
   playerName: {
-    fontWeight: '700',
-    color: '#e2e8f0',
     fontSize: 16,
+    fontWeight: "500",
+    color: "#fafafa",
   },
   transferHint: {
-    color: '#94a3b8',
-    marginRight: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  transferHintText: {
+    fontSize: 14,
+    color: "#52525b",
   },
   teamRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderColor: borderCol,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(255,255,255,0.06)",
+  },
+  teamLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
   teamName: {
-    fontWeight: '700',
-    color: '#e2e8f0',
     fontSize: 16,
+    fontWeight: "500",
+    color: "#fafafa",
   },
-  emptyContainer: {
+  emptyState: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     gap: 16,
   },
-  empty: {
-    color: '#94a3b8',
-    fontSize: 16,
+  emptyText: {
+    fontSize: 15,
+    color: "#52525b",
   },
-  addButton: {
-    backgroundColor: Colors.light.tint,
+  addPlayersButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
     paddingHorizontal: 20,
     paddingVertical: 12,
+    backgroundColor: "#3b82f6",
     borderRadius: 12,
+    marginTop: 8,
   },
-  addButtonText: {
-    color: '#0b1220',
-    fontWeight: '800',
+  addPlayersButtonText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#fafafa",
+  },
+  footer: {
+    padding: 20,
+    paddingBottom: 36,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "rgba(255,255,255,0.06)",
+  },
+  primaryButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    height: 54,
+    backgroundColor: "#3b82f6",
+    borderRadius: 14,
+  },
+  primaryButtonText: {
+    fontSize: 17,
+    fontWeight: "600",
+    color: "#09090b",
   },
   cancelButton: {
-    margin: 16,
-    paddingVertical: 14,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: borderCol,
+    height: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.04)",
     borderRadius: 12,
   },
   cancelButtonText: {
-    color: '#94a3b8',
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#71717a",
+  },
+  errorContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 16,
   },
   errorText: {
-    color: '#e2e8f0',
     fontSize: 16,
-    textAlign: 'center',
-    marginTop: 40,
+    color: "#71717a",
   },
-  linkText: {
-    color: Colors.light.tint,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginTop: 16,
+  backButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  backButtonText: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#3b82f6",
   },
 });
-

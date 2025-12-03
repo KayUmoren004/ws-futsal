@@ -44,6 +44,7 @@ const TournamentContext = createContext<{
   addGlobalPlayer: (name: string) => Player | undefined;
   addGlobalPlayers: (names: string[]) => Player[];
   removeGlobalPlayer: (playerId: string) => void;
+  removeAllGlobalPlayers: () => void;
   globalPlayers: Player[];
 }>({
   state: { nights: [], loading: true, globalPlayers: [] },
@@ -64,6 +65,7 @@ const TournamentContext = createContext<{
   addGlobalPlayer: () => undefined,
   addGlobalPlayers: () => [],
   removeGlobalPlayer: () => {},
+  removeAllGlobalPlayers: () => {},
   globalPlayers: [],
 });
 
@@ -343,7 +345,8 @@ export const TournamentProvider = ({ children }: { children: React.ReactNode }) 
   const resetNight = useCallback(() => {
     if (!currentNight) return;
     const reset = createGameNight(currentNight.title, currentNight.teams);
-    updateNight(reset);
+    // Preserve the original ID so updateNight can match it
+    updateNight({ ...reset, id: currentNight.id });
   }, [currentNight, updateNight]);
 
   const startNight = useCallback(
@@ -432,6 +435,18 @@ export const TournamentProvider = ({ children }: { children: React.ReactNode }) 
     [state.globalPlayers, state.nights],
   );
 
+  const removeAllGlobalPlayers = useCallback(() => {
+    const nights = state.nights.map((night) => ({
+      ...night,
+      teams: night.teams.map((team) => ({
+        ...team,
+        players: [],
+      })),
+    }));
+    dispatch({ type: 'setGlobalPlayers', payload: [] });
+    dispatch({ type: 'setNights', payload: nights });
+  }, [state.nights]);
+
   const setCurrentNight = useCallback(
     (id: string) => {
       dispatch({ type: 'setCurrentNight', payload: id });
@@ -468,6 +483,7 @@ export const TournamentProvider = ({ children }: { children: React.ReactNode }) 
       addGlobalPlayer,
       addGlobalPlayers,
       removeGlobalPlayer,
+      removeAllGlobalPlayers,
       globalPlayers: state.globalPlayers,
     }),
     [
@@ -490,6 +506,7 @@ export const TournamentProvider = ({ children }: { children: React.ReactNode }) 
       addGlobalPlayer,
       addGlobalPlayers,
       removeGlobalPlayer,
+      removeAllGlobalPlayers,
     ],
   );
 

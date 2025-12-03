@@ -15,7 +15,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useTournament } from '@/state/TournamentProvider';
 
 export default function PlayerLibraryScreen() {
-  const { globalPlayers, addGlobalPlayer, addGlobalPlayers, removeGlobalPlayer } =
+  const { globalPlayers, addGlobalPlayer, addGlobalPlayers, removeGlobalPlayer, removeAllGlobalPlayers } =
     useTournament();
   const [search, setSearch] = useState('');
   const [newPlayer, setNewPlayer] = useState('');
@@ -24,7 +24,9 @@ export default function PlayerLibraryScreen() {
 
   const filtered = useMemo(() => {
     const term = search.toLowerCase();
-    return globalPlayers.filter((p) => p.name.toLowerCase().includes(term));
+    return globalPlayers
+      .filter((p) => p.name.toLowerCase().includes(term))
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [globalPlayers, search]);
 
   const confirmDelete = (id: string, name: string) => {
@@ -32,6 +34,17 @@ export default function PlayerLibraryScreen() {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Remove', style: 'destructive', onPress: () => removeGlobalPlayer(id) },
     ]);
+  };
+
+  const confirmRemoveAll = () => {
+    Alert.alert(
+      'Remove all players?',
+      `This will remove all ${globalPlayers.length} players from the library and all teams. This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Remove All', style: 'destructive', onPress: removeAllGlobalPlayers },
+      ]
+    );
   };
 
   const handleAddPlayer = () => {
@@ -111,23 +124,29 @@ export default function PlayerLibraryScreen() {
         )}
       </View>
 
-      {/* Search */}
+      {/* Search and Remove All */}
       {globalPlayers.length > 0 && (
-        <View style={styles.searchSection}>
-          <IconSymbol name="magnifyingglass" size={16} color="#64748b" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search..."
-            placeholderTextColor="#64748b"
-            value={search}
-            onChangeText={setSearch}
-          />
-          {search.length > 0 && (
-            <Pressable onPress={() => setSearch('')} hitSlop={12}>
-              <IconSymbol name="xmark.circle.fill" size={16} color="#64748b" />
-            </Pressable>
-          )}
-        </View>
+        <>
+          <View style={styles.searchSection}>
+            <IconSymbol name="magnifyingglass" size={16} color="#64748b" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search..."
+              placeholderTextColor="#64748b"
+              value={search}
+              onChangeText={setSearch}
+            />
+            {search.length > 0 && (
+              <Pressable onPress={() => setSearch('')} hitSlop={12}>
+                <IconSymbol name="xmark.circle.fill" size={16} color="#64748b" />
+              </Pressable>
+            )}
+          </View>
+          <Pressable style={styles.removeAllButton} onPress={confirmRemoveAll}>
+            <IconSymbol name="trash" size={14} color="#ef4444" />
+            <Text style={styles.removeAllText}>Remove All Players</Text>
+          </Pressable>
+        </>
       )}
 
       {/* Player list */}
@@ -285,6 +304,22 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     color: '#fafafa',
+  },
+  removeAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderRadius: 8,
+  },
+  removeAllText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#ef4444',
   },
   listContent: {
     paddingHorizontal: 16,
