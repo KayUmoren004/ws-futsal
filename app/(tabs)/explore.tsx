@@ -104,7 +104,7 @@ export default function TimerScreen() {
   const [running, setRunning] = useState(false);
   const [showCustom, setShowCustom] = useState(false);
   const [customMinutes, setCustomMinutes] = useState("");
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const attachedMatch = useMemo(
     () =>
