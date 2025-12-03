@@ -8,10 +8,12 @@ type State = {
   nights: GameNight[];
   currentNightId?: string;
   loading: boolean;
+  globalPlayers: Player[];
 };
 
 type Action =
   | { type: 'setNights'; payload: GameNight[] }
+  | { type: 'setGlobalPlayers'; payload: Player[] }
   | { type: 'setCurrentNight'; payload: string }
   | { type: 'updateNight'; payload: GameNight }
   | { type: 'addNight'; payload: GameNight }
@@ -23,6 +25,7 @@ const TournamentContext = createContext<{
   addTeam: (team: { name: string; color: string }) => void;
   updateTeam: (id: string, data: Partial<Pick<Team, 'name' | 'color'>>) => void;
   addPlayer: (teamId: string, name: string) => void;
+  addExistingPlayer: (teamId: string, playerId: string) => void;
   transferPlayer: (playerId: string, fromTeamId: string, toTeamId: string) => void;
   updateMatchScore: (matchId: string, homeScore?: number, awayScore?: number) => void;
   resolveTie: (
@@ -38,11 +41,16 @@ const TournamentContext = createContext<{
   attachMatchToTimer: (matchId?: string) => void;
   startNight: (title?: string) => void;
   resetAllData: () => void | Promise<void>;
+  addGlobalPlayer: (name: string) => Player | undefined;
+  addGlobalPlayers: (names: string[]) => Player[];
+  removeGlobalPlayer: (playerId: string) => void;
+  globalPlayers: Player[];
 }>({
-  state: { nights: [], loading: true },
+  state: { nights: [], loading: true, globalPlayers: [] },
   addTeam: () => {},
   updateTeam: () => {},
   addPlayer: () => {},
+  addExistingPlayer: () => {},
   transferPlayer: () => {},
   updateMatchScore: () => {},
   resolveTie: () => {},
@@ -53,12 +61,18 @@ const TournamentContext = createContext<{
   attachMatchToTimer: () => {},
   startNight: () => {},
   resetAllData: () => {},
+  addGlobalPlayer: () => undefined,
+  addGlobalPlayers: () => [],
+  removeGlobalPlayer: () => {},
+  globalPlayers: [],
 });
 
 const reducer = (state: State, action: Action): State => {
   switch (action.type) {
     case 'setNights':
       return { ...state, nights: action.payload };
+    case 'setGlobalPlayers':
+      return { ...state, globalPlayers: action.payload };
     case 'setCurrentNight':
       return { ...state, currentNightId: action.payload };
     case 'updateNight': {
@@ -74,7 +88,7 @@ const reducer = (state: State, action: Action): State => {
   }
 };
 
-const STORAGE_KEY = 'futsal:nights';
+const STORAGE_KEY = 'futsal:data';
 
 const randomId = (prefix: string) =>
   `${prefix}-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 8)}`;
@@ -82,18 +96,31 @@ const randomId = (prefix: string) =>
 const uniqueColor = (preferred: string, teams: Team[]) => {
   const used = new Set(teams.map((t) => t.color));
   if (!used.has(preferred)) return preferred;
-  const palette = ['#F97316', '#2563EB', '#0EA5E9', '#22C55E', '#F43F5E', '#8B5CF6'];
+  const palette = ['#2563EB', '#22C55E', '#FACC15', '#EC4899', '#F97316', '#EF4444'];
   const free = palette.find((color) => !used.has(color));
   return free ?? preferred;
 };
 
 const findPlayer = (team: Team, playerId: string) => team.players.find((p) => p.id === playerId);
 
+const formatName = (raw: string) => {
+  const trimmed = raw.trim();
+  if (!trimmed) return '';
+  if (trimmed.includes(',')) {
+    const [last, first] = trimmed.split(',');
+    const firstClean = (first ?? '').trim();
+    const lastClean = (last ?? '').trim();
+    return `${firstClean} ${lastClean}`.trim();
+  }
+  return trimmed;
+};
+
 export const TournamentProvider = ({ children }: { children: React.ReactNode }) => {
   const [state, dispatch] = useReducer(reducer, {
     nights: [],
     currentNightId: undefined,
     loading: true,
+    globalPlayers: [],
   });
 
   const currentNight = useMemo(
@@ -107,12 +134,15 @@ export const TournamentProvider = ({ children }: { children: React.ReactNode }) 
       try {
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
         if (raw) {
-          const parsed = JSON.parse(raw) as GameNight[];
-          const hydrated = parsed.map((night) => ({
+          const parsed = JSON.parse(raw) as { nights: GameNight[]; globalPlayers?: Player[] } | GameNight[];
+          const nightsArr = Array.isArray(parsed) ? parsed : parsed.nights;
+          const globalPlayers = Array.isArray(parsed) ? [] : parsed.globalPlayers ?? [];
+          const hydrated = nightsArr.map((night) => ({
             ...night,
             matches: syncKnockouts(night.teams, night.matches ?? []),
           }));
           dispatch({ type: 'setNights', payload: hydrated });
+          dispatch({ type: 'setGlobalPlayers', payload: globalPlayers });
           if (hydrated[0]) {
             dispatch({ type: 'setCurrentNight', payload: hydrated[0].id });
           }
@@ -131,10 +161,14 @@ export const TournamentProvider = ({ children }: { children: React.ReactNode }) 
 
   useEffect(() => {
     if (state.loading) return;
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state.nights)).catch((err) =>
+    const payload = JSON.stringify({
+      nights: state.nights,
+      globalPlayers: state.globalPlayers,
+    });
+    AsyncStorage.setItem(STORAGE_KEY, payload).catch((err) =>
       console.warn('Failed saving nights', err),
     );
-  }, [state.nights, state.loading]);
+  }, [state.nights, state.globalPlayers, state.loading]);
 
   const updateNight = useCallback(
     (nextNight: GameNight) => {
@@ -180,14 +214,40 @@ export const TournamentProvider = ({ children }: { children: React.ReactNode }) 
   const addPlayer = useCallback(
     (teamId: string, name: string) => {
       if (!currentNight || !name.trim()) return;
+      const formatted = formatName(name);
+      if (!formatted) return;
+      const player: Player = { id: randomId('player'), name: formatted };
       const teams = currentNight.teams.map((team) =>
         team.id === teamId
-          ? { ...team, players: [...team.players, { id: randomId('player'), name }] }
+          ? { ...team, players: [...team.players, player] }
           : team,
+      );
+      const globalPlayers = state.globalPlayers.some((p) => p.name === name.trim())
+        ? state.globalPlayers
+        : [...state.globalPlayers, player];
+      dispatch({ type: 'setGlobalPlayers', payload: globalPlayers });
+      updateNight({ ...currentNight, teams });
+    },
+    [currentNight, updateNight, state.globalPlayers],
+  );
+
+  const addExistingPlayer = useCallback(
+    (teamId: string, playerId: string) => {
+      if (!currentNight) return;
+      const player =
+        currentNight.teams.flatMap((t) => t.players).find((p) => p.id === playerId) ||
+        state.globalPlayers.find((p) => p.id === playerId);
+      if (!player) return;
+      const already = currentNight.teams
+        .find((t) => t.id === teamId)
+        ?.players.some((p) => p.id === playerId);
+      if (already) return;
+      const teams = currentNight.teams.map((team) =>
+        team.id === teamId ? { ...team, players: [...team.players, player] } : team,
       );
       updateNight({ ...currentNight, teams });
     },
-    [currentNight, updateNight],
+    [currentNight, updateNight, state.globalPlayers],
   );
 
   const transferPlayer = useCallback(
@@ -307,6 +367,7 @@ export const TournamentProvider = ({ children }: { children: React.ReactNode }) 
       console.warn('Failed to clear storage', err);
     }
     dispatch({ type: 'setNights', payload: [night] });
+    dispatch({ type: 'setGlobalPlayers', payload: [] });
     dispatch({ type: 'setCurrentNight', payload: night.id });
   }, []);
 
@@ -316,6 +377,59 @@ export const TournamentProvider = ({ children }: { children: React.ReactNode }) 
       updateNight({ ...currentNight, title });
     },
     [currentNight, updateNight],
+  );
+
+  const addGlobalPlayer = useCallback(
+    (name: string) => {
+      const formatted = formatName(name);
+      if (!formatted) return undefined;
+      const existing = state.globalPlayers.find((p) => p.name.toLowerCase() === formatted.toLowerCase());
+      if (existing) return existing;
+      const player: Player = { id: randomId('player'), name: formatted };
+      const next = [...state.globalPlayers, player];
+      dispatch({ type: 'setGlobalPlayers', payload: next });
+      return player;
+    },
+    [state.globalPlayers],
+  );
+
+  const addGlobalPlayers = useCallback(
+    (names: string[]) => {
+      const norm = names
+        .map((n) => formatName(n))
+        .filter(Boolean) as string[];
+      if (!norm.length) return [];
+      const existingSet = new Set(state.globalPlayers.map((p) => p.name.toLowerCase()));
+      const newPlayers: Player[] = [];
+      norm.forEach((n) => {
+        const lower = n.toLowerCase();
+        if (existingSet.has(lower)) return;
+        const player: Player = { id: randomId('player'), name: n };
+        existingSet.add(lower);
+        newPlayers.push(player);
+      });
+      if (newPlayers.length) {
+        dispatch({ type: 'setGlobalPlayers', payload: [...state.globalPlayers, ...newPlayers] });
+      }
+      return newPlayers;
+    },
+    [state.globalPlayers],
+  );
+
+  const removeGlobalPlayer = useCallback(
+    (playerId: string) => {
+      const nextGlobal = state.globalPlayers.filter((p) => p.id !== playerId);
+      const nights = state.nights.map((night) => ({
+        ...night,
+        teams: night.teams.map((team) => ({
+          ...team,
+          players: team.players.filter((p) => p.id !== playerId),
+        })),
+      }));
+      dispatch({ type: 'setGlobalPlayers', payload: nextGlobal });
+      dispatch({ type: 'setNights', payload: nights });
+    },
+    [state.globalPlayers, state.nights],
   );
 
   const setCurrentNight = useCallback(
@@ -340,6 +454,7 @@ export const TournamentProvider = ({ children }: { children: React.ReactNode }) 
       addTeam,
       updateTeam,
       addPlayer,
+      addExistingPlayer,
       transferPlayer,
       updateMatchScore,
       resolveTie,
@@ -350,6 +465,10 @@ export const TournamentProvider = ({ children }: { children: React.ReactNode }) 
       attachMatchToTimer,
       startNight,
       resetAllData,
+      addGlobalPlayer,
+      addGlobalPlayers,
+      removeGlobalPlayer,
+      globalPlayers: state.globalPlayers,
     }),
     [
       state,
@@ -357,6 +476,7 @@ export const TournamentProvider = ({ children }: { children: React.ReactNode }) 
       addTeam,
       updateTeam,
       addPlayer,
+      addExistingPlayer,
       transferPlayer,
       updateMatchScore,
       resolveTie,
@@ -367,6 +487,9 @@ export const TournamentProvider = ({ children }: { children: React.ReactNode }) 
       attachMatchToTimer,
       startNight,
       resetAllData,
+      addGlobalPlayer,
+      addGlobalPlayers,
+      removeGlobalPlayer,
     ],
   );
 
