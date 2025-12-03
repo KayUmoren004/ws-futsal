@@ -1,3 +1,5 @@
+import { Ionicons } from "@expo/vector-icons";
+import { router, useLocalSearchParams } from "expo-router";
 import React, { useState } from "react";
 import {
   FlatList,
@@ -7,13 +9,14 @@ import {
   Text,
   View,
 } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 
 import { useTournament } from "@/state/TournamentProvider";
 
 export default function ViewPlayersModal() {
-  const { teamId } = useLocalSearchParams<{ teamId: string }>();
+  const params = useLocalSearchParams<{ teamId: string }>();
+  const teamId = Array.isArray(params.teamId)
+    ? params.teamId[0]
+    : params.teamId;
   const { currentNight, transferPlayer } = useTournament();
 
   const team = currentNight?.teams.find((t) => t.id === teamId);
@@ -50,10 +53,7 @@ export default function ViewPlayersModal() {
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.title}>Transfer {player?.name}</Text>
-          <Pressable
-            onPress={() => setTransferringPlayer(null)}
-            hitSlop={12}
-          >
+          <Pressable onPress={() => setTransferringPlayer(null)} hitSlop={12}>
             <Ionicons name="close" size={24} color="#71717a" />
           </Pressable>
         </View>
@@ -139,7 +139,9 @@ export default function ViewPlayersModal() {
           </View>
         ) : (
           <FlatList
-            data={[...team.players].sort((a, b) => a.name.localeCompare(b.name))}
+            data={[...team.players].sort((a, b) =>
+              a.name.localeCompare(b.name)
+            )}
             keyExtractor={(item) => item.id}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.listContent}

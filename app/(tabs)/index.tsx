@@ -278,24 +278,25 @@ const MatchRow = ({
           placeholderTextColor="#52525b"
           style={styles.scoreInput}
         />
-        <Pressable
-          style={styles.saveScoreButton}
-          onPress={() => {
-            const homeScore = home === "" ? undefined : Number(home);
-            const awayScore = away === "" ? undefined : Number(away);
-            onSave(homeScore, awayScore);
-          }}
-        >
-          <Text style={styles.saveScoreText}>Save</Text>
-        </Pressable>
       </View>
+
+      <Pressable
+        style={styles.saveScoreButton}
+        onPress={() => {
+          const homeScore = home === "" ? undefined : Number(home);
+          const awayScore = away === "" ? undefined : Number(away);
+          onSave(homeScore, awayScore);
+        }}
+      >
+        <Text style={styles.saveScoreText}>Save</Text>
+      </Pressable>
 
       {isKnockout && scoresFilled && isTied && (
         <TieResolver match={match} onResolveTie={onResolveTie} />
       )}
 
       {/* Actions row */}
-      <View style={styles.matchActions}>
+      {/* <View style={styles.matchActions}>
         <Pressable
           style={[styles.actionPill, isAttached && styles.actionPillActive]}
           onPress={attachToTimer}
@@ -315,7 +316,7 @@ const MatchRow = ({
           </Text>
         </Pressable>
         <DurationPicker match={match} onDurationChange={onDurationChange} />
-      </View>
+      </View> */}
     </View>
   );
 };
@@ -1432,6 +1433,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+    justifyContent: "space-between",
   },
   scoreInput: {
     width: 56,
@@ -1454,6 +1456,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     justifyContent: "center",
     marginLeft: "auto",
+    alignItems: "center",
+    width: "100%",
   },
   saveScoreText: {
     fontSize: 15,
