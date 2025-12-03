@@ -97,6 +97,7 @@ const TeamEditSheet = ({
   onClose,
   onRename,
   onColorChange,
+  onRemove,
   usedColors,
 }: {
   team: Team | null;
@@ -104,6 +105,7 @@ const TeamEditSheet = ({
   onClose: () => void;
   onRename: (name: string) => void;
   onColorChange: (color: string) => void;
+  onRemove: () => void;
   usedColors: Set<string>;
 }) => {
   const [draftName, setDraftName] = useState(team?.name ?? "");
@@ -185,6 +187,32 @@ const TeamEditSheet = ({
               <Text style={styles.sheetButtonTextPrimary}>Add Players</Text>
             </Pressable>
           </View>
+
+          <Pressable
+            style={styles.sheetButtonDanger}
+            onPress={() => {
+              Alert.alert(
+                "Remove Team?",
+                `Are you sure you want to remove "${
+                  team.name || "this team"
+                }"? This will also remove all matches involving this team.`,
+                [
+                  { text: "Cancel", style: "cancel" },
+                  {
+                    text: "Remove",
+                    style: "destructive",
+                    onPress: () => {
+                      onRemove();
+                      onClose();
+                    },
+                  },
+                ]
+              );
+            }}
+          >
+            <Ionicons name="trash-outline" size={18} color="#ef4444" />
+            <Text style={styles.sheetButtonDangerText}>Remove Team</Text>
+          </Pressable>
         </View>
       </View>
     </Modal>
@@ -603,6 +631,7 @@ export default function GamesScreen() {
     state,
     currentNight,
     addTeam,
+    removeTeam,
     updateTeam,
     updateMatchScore,
     resolveTie,
@@ -618,7 +647,7 @@ export default function GamesScreen() {
   const [newTeamColor, setNewTeamColor] = useState(PALETTE[0]);
   const [nightSheetVisible, setNightSheetVisible] = useState(false);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
-  const [showAllMatches, setShowAllMatches] = useState(true);
+  const [showAllMatches, setShowAllMatches] = useState(false);
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
 
   const loading = state.loading || !currentNight;
@@ -720,7 +749,7 @@ export default function GamesScreen() {
               onPress={() => {
                 Alert.alert(
                   "Reset Night?",
-                  "This will clear all match scores for this night. Teams will be kept.",
+                  "This will remove all teams and matches for this night. Players will remain in the library.",
                   [
                     { text: "Cancel", style: "cancel" },
                     {
@@ -1038,6 +1067,9 @@ export default function GamesScreen() {
         }}
         onColorChange={(color) => {
           if (editingTeam) updateTeam(editingTeam.id, { color });
+        }}
+        onRemove={() => {
+          if (editingTeam) removeTeam(editingTeam.id);
         }}
         usedColors={usedColors}
       />
@@ -1436,7 +1468,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   scoreInput: {
-    width: 56,
+    flex: 1,
     height: 44,
     backgroundColor: "rgba(255,255,255,0.04)",
     borderRadius: 8,
@@ -1712,6 +1744,21 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     color: "#fafafa",
+  },
+  sheetButtonDanger: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    height: 48,
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
+    borderRadius: 10,
+    marginTop: 12,
+  },
+  sheetButtonDangerText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#ef4444",
   },
 
   // Picker & Night modal
