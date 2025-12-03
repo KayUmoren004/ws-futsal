@@ -1,12 +1,13 @@
 {
   "expo": {
-    "name": "ws-futsal",
-    "slug": "ws-futsal",
+    "name": "Futsal Manager",
+    "slug": "futsal-manager",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "wsfutsal",
-    "userInterfaceStyle": "automatic",
+    "scheme": "futsal-manager",
+    "userInterfaceStyle": "dark",
+    "owner": "godsonumoren",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,

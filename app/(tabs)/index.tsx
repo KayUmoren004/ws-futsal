@@ -293,6 +293,8 @@ const MatchRow = ({
           value={home}
           onChangeText={setHome}
           keyboardType="numeric"
+          returnKeyType="done"
+          blurOnSubmit
           placeholder="0"
           placeholderTextColor="#52525b"
           style={styles.scoreInput}
@@ -302,6 +304,8 @@ const MatchRow = ({
           value={away}
           onChangeText={setAway}
           keyboardType="numeric"
+          returnKeyType="done"
+          blurOnSubmit
           placeholder="0"
           placeholderTextColor="#52525b"
           style={styles.scoreInput}
@@ -376,6 +380,8 @@ const TieResolver = ({
             value={etHome}
             onChangeText={setEtHome}
             keyboardType="numeric"
+            returnKeyType="done"
+            blurOnSubmit
             placeholder="0"
             placeholderTextColor="#52525b"
             style={styles.tieInput}
@@ -385,6 +391,8 @@ const TieResolver = ({
             value={etAway}
             onChangeText={setEtAway}
             keyboardType="numeric"
+            returnKeyType="done"
+            blurOnSubmit
             placeholder="0"
             placeholderTextColor="#52525b"
             style={styles.tieInput}
@@ -406,6 +414,8 @@ const TieResolver = ({
             value={penHome}
             onChangeText={setPenHome}
             keyboardType="numeric"
+            returnKeyType="done"
+            blurOnSubmit
             placeholder="0"
             placeholderTextColor="#52525b"
             style={styles.tieInput}
@@ -415,6 +425,8 @@ const TieResolver = ({
             value={penAway}
             onChangeText={setPenAway}
             keyboardType="numeric"
+            returnKeyType="done"
+            blurOnSubmit
             placeholder="0"
             placeholderTextColor="#52525b"
             style={styles.tieInput}

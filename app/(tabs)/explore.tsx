@@ -1,18 +1,22 @@
 import * as Haptics from "expo-haptics";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Keyboard,
   Pressable,
   SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
+  TouchableWithoutFeedback,
   View,
 } from "react-native";
 import Animated, {
   Easing,
   interpolate,
+  useAnimatedKeyboard,
   useAnimatedStyle,
   useSharedValue,
+  withSpring,
   withTiming,
 } from "react-native-reanimated";
 
@@ -21,6 +25,13 @@ import { useTournament } from "@/state/TournamentProvider";
 const CIRCLE_SIZE = 280;
 const STROKE_WIDTH = 8;
 const HALF_SIZE = CIRCLE_SIZE / 2;
+
+const pulse = async () => {
+  for (let i = 0; i < 3; i++) {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+};
 
 const formatTime = (seconds: number) => {
   const mins = Math.floor(seconds / 60)
@@ -149,9 +160,10 @@ export default function TimerScreen() {
     if (remaining === 0 && running) {
       setRunning(false);
       if (intervalRef.current) clearInterval(intervalRef.current);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
-        () => {}
-      );
+      // Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
+      //   () => {}
+      // );
+      pulse();
     }
   }, [remaining, running]);
 
@@ -187,105 +199,141 @@ export default function TimerScreen() {
 
   const isComplete = remaining === 0;
 
+  // Smooth animated keyboard handling for bottom section only
+  const keyboard = useAnimatedKeyboard();
+
+  const bottomSectionStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        {
+          translateY: withSpring(-keyboard.height.value * 0.9, {
+            damping: 20,
+            stiffness: 150,
+            mass: 0.8,
+          }),
+        },
+      ],
+    };
+  });
+
   return (
     <SafeAreaView style={styles.container}>
-      {/* Match indicator */}
-      {currentMatchLabel && (
-        <View style={styles.matchBadge}>
-          <View style={styles.matchDot} />
-          <Text style={styles.matchLabel}>{currentMatchLabel}</Text>
-        </View>
-      )}
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <View style={styles.contentWrapper}>
+          {/* Match indicator */}
+          {currentMatchLabel && (
+            <View style={styles.matchBadge}>
+              <View style={styles.matchDot} />
+              <Text style={styles.matchLabel}>{currentMatchLabel}</Text>
+            </View>
+          )}
 
-      {/* Timer display */}
-      <View style={styles.timerSection}>
-        <CircularProgress progress={progress} isRunning={running} />
-        <View style={styles.timerCenter}>
-          <Text style={[styles.timerText, isComplete && styles.timerComplete]}>
-            {formatTime(remaining)}
-          </Text>
-          <Text style={styles.durationLabel}>
-            of {Math.floor(duration / 60)} min
-          </Text>
-        </View>
-      </View>
-
-      {/* Duration presets */}
-      <View style={styles.presetsSection}>
-        {showCustom ? (
-          <View style={styles.customRow}>
-            <TextInput
-              placeholder="Minutes"
-              placeholderTextColor="#52525b"
-              value={customMinutes}
-              onChangeText={setCustomMinutes}
-              keyboardType="number-pad"
-              style={styles.customInput}
-              autoFocus
-            />
-            <Pressable style={styles.customButton} onPress={saveCustomDuration}>
-              <Text style={styles.customButtonText}>Set</Text>
-            </Pressable>
-            <Pressable
-              style={styles.customCancel}
-              onPress={() => {
-                setShowCustom(false);
-                setCustomMinutes("");
-              }}
-            >
-              <Text style={styles.customCancelText}>Cancel</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <View style={styles.presetsRow}>
-            {[6, 8, 10].map((mins) => (
-              <Pressable
-                key={mins}
-                style={[
-                  styles.presetPill,
-                  duration === mins * 60 && styles.presetPillActive,
-                ]}
-                onPress={() => setPreset(mins)}
+          {/* Timer display */}
+          <View style={styles.timerSection}>
+            <CircularProgress progress={progress} isRunning={running} />
+            <View style={styles.timerCenter}>
+              <Text
+                style={[styles.timerText, isComplete && styles.timerComplete]}
               >
-                <Text
-                  style={[
-                    styles.presetText,
-                    duration === mins * 60 && styles.presetTextActive,
-                  ]}
-                >
-                  {mins}
+                {formatTime(remaining)}
+              </Text>
+              <Text style={styles.durationLabel}>
+                of{" "}
+                {(duration / 60) % 1 === 0
+                  ? Math.floor(duration / 60)
+                  : (duration / 60).toFixed(1)}{" "}
+                min
+              </Text>
+            </View>
+          </View>
+
+          {/* Duration presets and controls - animated when keyboard opens */}
+          <Animated.View style={bottomSectionStyle}>
+            <View style={styles.presetsSection}>
+              {showCustom ? (
+                <View style={styles.customRow}>
+                  <TextInput
+                    placeholder="Minutes"
+                    placeholderTextColor="#52525b"
+                    value={customMinutes}
+                    onChangeText={setCustomMinutes}
+                    keyboardType="decimal-pad"
+                    returnKeyType="done"
+                    onSubmitEditing={saveCustomDuration}
+                    blurOnSubmit
+                    style={styles.customInput}
+                    autoFocus
+                  />
+                  <Pressable
+                    style={styles.customButton}
+                    onPress={saveCustomDuration}
+                  >
+                    <Text style={styles.customButtonText}>Set</Text>
+                  </Pressable>
+                  <Pressable
+                    style={styles.customCancel}
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      setShowCustom(false);
+                      setCustomMinutes("");
+                    }}
+                  >
+                    <Text style={styles.customCancelText}>Cancel</Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <View style={styles.presetsRow}>
+                  {[6, 8, 10].map((mins) => (
+                    <Pressable
+                      key={mins}
+                      style={[
+                        styles.presetPill,
+                        duration === mins * 60 && styles.presetPillActive,
+                      ]}
+                      onPress={() => setPreset(mins)}
+                    >
+                      <Text
+                        style={[
+                          styles.presetText,
+                          duration === mins * 60 && styles.presetTextActive,
+                        ]}
+                      >
+                        {mins}
+                      </Text>
+                    </Pressable>
+                  ))}
+                  <Pressable
+                    style={styles.presetPill}
+                    onPress={() => setShowCustom(true)}
+                  >
+                    <Text style={styles.presetText}>...</Text>
+                  </Pressable>
+                </View>
+              )}
+            </View>
+
+            {/* Controls */}
+            <View style={styles.controlsSection}>
+              <Pressable style={styles.resetButton} onPress={reset}>
+                <Text style={styles.resetButtonText}>Reset</Text>
+              </Pressable>
+
+              <Pressable
+                style={[
+                  styles.mainButton,
+                  running ? styles.mainButtonPause : styles.mainButtonStart,
+                  isComplete && styles.mainButtonComplete,
+                ]}
+                onPress={() => setRunning((prev) => !prev)}
+              >
+                <Text style={styles.mainButtonText}>
+                  {isComplete ? "Done" : running ? "Pause" : "Start"}
                 </Text>
               </Pressable>
-            ))}
-            <Pressable
-              style={styles.presetPill}
-              onPress={() => setShowCustom(true)}
-            >
-              <Text style={styles.presetText}>...</Text>
-            </Pressable>
-          </View>
-        )}
-      </View>
-
-      {/* Controls */}
-      <View style={styles.controlsSection}>
-        <Pressable style={styles.resetButton} onPress={reset}>
-          <Text style={styles.resetButtonText}>Reset</Text>
-        </Pressable>
-
-        <Pressable
-          style={[
-            styles.mainButton,
-            running ? styles.mainButtonPause : styles.mainButtonStart,
-            isComplete && styles.mainButtonComplete,
-          ]}
-          onPress={() => setRunning((prev) => !prev)}
-        >
-          <Text style={styles.mainButtonText}>
-            {isComplete ? "Done" : running ? "Pause" : "Start"}
-          </Text>
-        </Pressable>
-      </View>
+            </View>
+          </Animated.View>
+        </View>
+      </TouchableWithoutFeedback>
     </SafeAreaView>
   );
 }
@@ -295,6 +343,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#09090b",
     paddingHorizontal: 24,
+  },
+  contentWrapper: {
+    flex: 1,
   },
   matchBadge: {
     flexDirection: "row",
