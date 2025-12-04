@@ -38,6 +38,7 @@ const TournamentContext = createContext<{
   updateTeam: (id: string, data: Partial<Pick<Team, "name" | "color">>) => void;
   addPlayer: (teamId: string, name: string) => void;
   addExistingPlayer: (teamId: string, playerId: string) => void;
+  addExistingPlayers: (teamId: string, playerIds: string[]) => void;
   transferPlayer: (
     playerId: string,
     fromTeamId: string,
@@ -73,6 +74,7 @@ const TournamentContext = createContext<{
   updateTeam: () => {},
   addPlayer: () => {},
   addExistingPlayer: () => {},
+  addExistingPlayers: () => {},
   transferPlayer: () => {},
   updateMatchScore: () => {},
   resolveTie: () => {},
@@ -309,6 +311,37 @@ export const TournamentProvider = ({
       const teams = currentNight.teams.map((team) =>
         team.id === teamId
           ? { ...team, players: [...team.players, player] }
+          : team
+      );
+      updateNight({ ...currentNight, teams });
+    },
+    [currentNight, updateNight, state.globalPlayers]
+  );
+
+  const addExistingPlayers = useCallback(
+    (teamId: string, playerIds: string[]) => {
+      if (!currentNight || playerIds.length === 0) return;
+
+      const allPlayers = [
+        ...currentNight.teams.flatMap((t) => t.players),
+        ...state.globalPlayers,
+      ];
+
+      const targetTeam = currentNight.teams.find((t) => t.id === teamId);
+      if (!targetTeam) return;
+
+      const existingPlayerIds = new Set(targetTeam.players.map((p) => p.id));
+
+      const playersToAdd = playerIds
+        .filter((id) => !existingPlayerIds.has(id))
+        .map((id) => allPlayers.find((p) => p.id === id))
+        .filter((p): p is Player => p !== undefined);
+
+      if (playersToAdd.length === 0) return;
+
+      const teams = currentNight.teams.map((team) =>
+        team.id === teamId
+          ? { ...team, players: [...team.players, ...playersToAdd] }
           : team
       );
       updateNight({ ...currentNight, teams });
@@ -554,6 +587,7 @@ export const TournamentProvider = ({
       updateTeam,
       addPlayer,
       addExistingPlayer,
+      addExistingPlayers,
       transferPlayer,
       updateMatchScore,
       resolveTie,
@@ -578,6 +612,7 @@ export const TournamentProvider = ({
       updateTeam,
       addPlayer,
       addExistingPlayer,
+      addExistingPlayers,
       transferPlayer,
       updateMatchScore,
       resolveTie,

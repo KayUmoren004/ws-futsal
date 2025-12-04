@@ -15,7 +15,7 @@ import { useTournament } from "@/state/TournamentProvider";
 
 export default function AddPlayersModal() {
   const { teamId } = useLocalSearchParams<{ teamId: string }>();
-  const { state, currentNight, addPlayer, addExistingPlayer } = useTournament();
+  const { state, currentNight, addPlayer, addExistingPlayers } = useTournament();
 
   const [searchValue, setSearchValue] = useState("");
   const [newPlayerName, setNewPlayerName] = useState("");
@@ -60,10 +60,8 @@ export default function AddPlayersModal() {
   };
 
   const handleConfirm = () => {
-    if (teamId) {
-      selectedIds.forEach((playerId) => {
-        addExistingPlayer(teamId, playerId);
-      });
+    if (teamId && selectedIds.size > 0) {
+      addExistingPlayers(teamId, Array.from(selectedIds));
       router.back();
     }
   };
