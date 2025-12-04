@@ -10,6 +10,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -18,6 +20,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  TouchableWithoutFeedback,
   View,
 } from "react-native";
 
@@ -959,351 +962,371 @@ export default function GamesScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Pressable
-            style={styles.nightSelector}
-            onPress={() => setNightSheetVisible(true)}
-          >
-            <Text style={styles.nightTitle}>{currentNight.title}</Text>
-            <Ionicons name="chevron-down" size={18} color="#71717a" />
-          </Pressable>
-          <View style={styles.headerActions}>
-            <Pressable
-              style={styles.iconButton}
-              onPress={handleExport}
-              hitSlop={12}
-            >
-              <Ionicons name="share-outline" size={20} color="#71717a" />
-            </Pressable>
-            <Pressable
-              style={styles.iconButton}
-              onPress={() => {
-                Alert.alert(
-                  "Reset Night?",
-                  "This will remove all teams and matches for this night. Players will remain in the library.",
-                  [
-                    { text: "Cancel", style: "cancel" },
-                    {
-                      text: "Reset",
-                      style: "destructive",
-                      onPress: resetNight,
-                    },
-                  ]
-                );
-              }}
-              hitSlop={12}
-            >
-              <Ionicons name="refresh" size={20} color="#ef4444" />
-            </Pressable>
-          </View>
-        </View>
-
-        {/* Night name edit */}
-        <View style={styles.nightMeta}>
-          <TextInput
-            style={styles.nightInput}
-            value={currentNight.title}
-            onChangeText={renameNight}
-            placeholder="Night name"
-            placeholderTextColor="#52525b"
-          />
-          <Pressable
-            style={styles.dateButton}
-            onPress={() => renameNight(new Date().toLocaleDateString())}
-          >
-            <Text style={styles.dateButtonText}>Use Date</Text>
-          </Pressable>
-        </View>
-
-        {/* Teams Section */}
-        <CollapsibleSection
-          title="Teams"
-          badge={currentNight.teams.length}
-          defaultOpen={true}
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          // keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
         >
-          {/* Add team row */}
-          <View style={styles.addTeamRow}>
-            <TextInput
-              style={[styles.input, { flex: 1 }]}
-              placeholder="Team name"
-              placeholderTextColor="#52525b"
-              value={newTeamName}
-              onChangeText={setNewTeamName}
-              onSubmitEditing={handleAddTeam}
-            />
-            <View style={styles.colorRow}>
-              {PALETTE.map((color) => {
-                const taken = usedColors.has(color);
-                return (
-                  <Pressable
-                    key={color}
-                    style={[
-                      styles.colorDotSmall,
-                      { backgroundColor: color, opacity: taken ? 0.3 : 1 },
-                      newTeamColor === color && styles.colorDotActive,
-                    ]}
-                    disabled={taken}
-                    onPress={() => setNewTeamColor(color)}
-                  />
-                );
-              })}
-            </View>
-            <Pressable style={styles.addButton} onPress={handleAddTeam}>
-              <Ionicons name="add" size={22} color="#09090b" />
-            </Pressable>
-          </View>
-
-          {/* Team list */}
-          {currentNight.teams.length === 0 ? (
-            <Text style={styles.emptyText}>Add 2–6 teams to start</Text>
-          ) : (
-            currentNight.teams.map((team) => (
-              <TeamRow
-                key={team.id}
-                team={team}
-                onEdit={() => setEditingTeam(team)}
-                onAddPlayers={() =>
-                  router.push({
-                    pathname: "/add-players-modal",
-                    params: { teamId: team.id },
-                  })
-                }
-                onPlayerTap={(playerId) =>
-                  setTransferState({ playerId, fromTeamId: team.id })
-                }
-              />
-            ))
-          )}
-        </CollapsibleSection>
-
-        {/* Table Section */}
-        <CollapsibleSection title="Standings" defaultOpen={true}>
-          {table.length === 0 ? (
-            <Text style={styles.emptyText}>No standings yet</Text>
-          ) : (
-            <View style={styles.table}>
-              <View style={styles.tableHeader}>
-                <Text style={styles.tablePos}>#</Text>
-                <View style={styles.colorDot} />
-                <Text style={[styles.tableCell, styles.tableTeamName]}>
-                  Team
-                </Text>
-                <Text style={styles.tableCell}>P</Text>
-                <Text style={styles.tableCell}>Pts</Text>
-                <Text style={styles.tableCell}>GD</Text>
-              </View>
-              {table.map((row, index) => {
-                const inSemiWindow =
-                  currentNight.teams.length >= 4 ? index < 4 : index === 0;
-                const isBottomQual = bottomTwo.includes(row.teamId);
-                return (
-                  <TableRow
-                    key={row.teamId}
-                    row={row}
-                    index={index}
-                    inSemiWindow={inSemiWindow}
-                    isBottomQual={isBottomQual}
-                  />
-                );
-              })}
-            </View>
-          )}
-        </CollapsibleSection>
-
-        {/* Matches Section */}
-        <CollapsibleSection
-          title="Matches"
-          badge={allMatchesFlat.length}
-          defaultOpen={true}
-        >
-          {/* View toggle */}
-          <View style={styles.matchToggle}>
-            <Pressable
-              style={[
-                styles.togglePill,
-                showAllMatches && styles.togglePillActive,
-              ]}
-              onPress={() => setShowAllMatches(true)}
-            >
-              <Text
-                style={[
-                  styles.togglePillText,
-                  showAllMatches && styles.togglePillTextActive,
-                ]}
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Header */}
+            <View style={styles.header}>
+              <Pressable
+                style={styles.nightSelector}
+                onPress={() => setNightSheetVisible(true)}
               >
-                All
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[
-                styles.togglePill,
-                !showAllMatches && styles.togglePillActive,
-              ]}
-              onPress={() => setShowAllMatches(false)}
-            >
-              <Text
-                style={[
-                  styles.togglePillText,
-                  !showAllMatches && styles.togglePillTextActive,
-                ]}
-              >
-                One by One
-              </Text>
-            </Pressable>
-          </View>
-
-          {matchesByStage.length === 0 ? (
-            <Text style={styles.emptyText}>
-              Add at least 2 teams to generate fixtures
-            </Text>
-          ) : showAllMatches ? (
-            matchesByStage.map(({ stage, matches }) => (
-              <View key={stage} style={styles.stageBlock}>
-                <Text style={styles.stageLabel}>{stageLabel[stage]}</Text>
-                {matches.map((match) => (
-                  <MatchRow
-                    key={match.id}
-                    match={match}
-                    homeTeam={findTeam(match.homeId)}
-                    awayTeam={findTeam(match.awayId)}
-                    isAttached={currentNight.currentMatchId === match.id}
-                    attachToTimer={() => attachMatchToTimer(match.id)}
-                    onSave={(h, a) => updateMatchScore(match.id, h, a)}
-                    onResolveTie={(method, h, a) =>
-                      resolveTie(match.id, method, h, a)
-                    }
-                    onDurationChange={(seconds) =>
-                      setMatchDuration(match.id, seconds)
-                    }
-                  />
-                ))}
-              </View>
-            ))
-          ) : (
-            allMatchesFlat.length > 0 &&
-            allMatchesFlat[currentMatchIndex] && (
-              <View style={styles.singleMatchView}>
-                <Text style={styles.matchCounter}>
-                  {currentMatchIndex + 1} / {allMatchesFlat.length}
-                </Text>
-                <Text style={styles.stageLabel}>
-                  {stageLabel[allMatchesFlat[currentMatchIndex].stage]}
-                </Text>
-                <MatchRow
-                  match={allMatchesFlat[currentMatchIndex].match}
-                  homeTeam={findTeam(
-                    allMatchesFlat[currentMatchIndex].match.homeId
-                  )}
-                  awayTeam={findTeam(
-                    allMatchesFlat[currentMatchIndex].match.awayId
-                  )}
-                  isAttached={
-                    currentNight.currentMatchId ===
-                    allMatchesFlat[currentMatchIndex].match.id
-                  }
-                  attachToTimer={() =>
-                    attachMatchToTimer(
-                      allMatchesFlat[currentMatchIndex].match.id
-                    )
-                  }
-                  onSave={(h, a) =>
-                    updateMatchScore(
-                      allMatchesFlat[currentMatchIndex].match.id,
-                      h,
-                      a
-                    )
-                  }
-                  onSaveComplete={() => {
-                    // Auto-advance to next match after saving
-                    if (currentMatchIndex < allMatchesFlat.length - 1) {
-                      setCurrentMatchIndex((prev) => prev + 1);
-                    }
+                <Text style={styles.nightTitle}>{currentNight.title}</Text>
+                <Ionicons name="chevron-down" size={18} color="#71717a" />
+              </Pressable>
+              <View style={styles.headerActions}>
+                <Pressable
+                  style={styles.iconButton}
+                  onPress={handleExport}
+                  hitSlop={12}
+                >
+                  <Ionicons name="share-outline" size={20} color="#71717a" />
+                </Pressable>
+                <Pressable
+                  style={styles.iconButton}
+                  onPress={() => {
+                    Alert.alert(
+                      "Reset Night?",
+                      "This will remove all teams and matches for this night. Players will remain in the library.",
+                      [
+                        { text: "Cancel", style: "cancel" },
+                        {
+                          text: "Reset",
+                          style: "destructive",
+                          onPress: resetNight,
+                        },
+                      ]
+                    );
                   }}
-                  onResolveTie={(method, h, a) =>
-                    resolveTie(
-                      allMatchesFlat[currentMatchIndex].match.id,
-                      method,
-                      h,
-                      a
-                    )
-                  }
-                  onDurationChange={(seconds) =>
-                    setMatchDuration(
-                      allMatchesFlat[currentMatchIndex].match.id,
-                      seconds
-                    )
-                  }
+                  hitSlop={12}
+                >
+                  <Ionicons name="refresh" size={20} color="#ef4444" />
+                </Pressable>
+              </View>
+            </View>
+
+            {/* Night name edit */}
+            <View style={styles.nightMeta}>
+              <TextInput
+                style={styles.nightInput}
+                value={currentNight.title}
+                onChangeText={renameNight}
+                placeholder="Night name"
+                placeholderTextColor="#52525b"
+              />
+              <Pressable
+                style={styles.dateButton}
+                onPress={() => renameNight(new Date().toLocaleDateString())}
+              >
+                <Text style={styles.dateButtonText}>Use Date</Text>
+              </Pressable>
+            </View>
+
+            {/* Teams Section */}
+            <CollapsibleSection
+              title="Teams"
+              badge={currentNight.teams.length}
+              defaultOpen={true}
+            >
+              {/* Add team row */}
+              <View style={styles.addTeamRow}>
+                <TextInput
+                  style={[styles.input, { flex: 1 }]}
+                  placeholder="Team name"
+                  placeholderTextColor="#52525b"
+                  value={newTeamName}
+                  onChangeText={setNewTeamName}
+                  onSubmitEditing={handleAddTeam}
                 />
-                <View style={styles.matchNav}>
-                  <Pressable
-                    style={[
-                      styles.navButton,
-                      currentMatchIndex === 0 && styles.navButtonDisabled,
-                    ]}
-                    onPress={() =>
-                      setCurrentMatchIndex((prev) => Math.max(0, prev - 1))
+                <View style={styles.colorRow}>
+                  {PALETTE.map((color) => {
+                    const taken = usedColors.has(color);
+                    return (
+                      <Pressable
+                        key={color}
+                        style={[
+                          styles.colorDotSmall,
+                          { backgroundColor: color, opacity: taken ? 0.3 : 1 },
+                          newTeamColor === color && styles.colorDotActive,
+                        ]}
+                        disabled={taken}
+                        onPress={() => setNewTeamColor(color)}
+                      />
+                    );
+                  })}
+                </View>
+                <Pressable style={styles.addButton} onPress={handleAddTeam}>
+                  <Ionicons name="add" size={22} color="#09090b" />
+                </Pressable>
+              </View>
+
+              {/* Team list */}
+              {currentNight.teams.length === 0 ? (
+                <Text style={styles.emptyText}>Add 2–6 teams to start</Text>
+              ) : (
+                currentNight.teams.map((team) => (
+                  <TeamRow
+                    key={team.id}
+                    team={team}
+                    onEdit={() => setEditingTeam(team)}
+                    onAddPlayers={() =>
+                      router.push({
+                        pathname: "/add-players-modal",
+                        params: { teamId: team.id },
+                      })
                     }
-                    disabled={currentMatchIndex === 0}
-                  >
-                    <Ionicons
-                      name="chevron-back"
-                      size={20}
-                      color={currentMatchIndex === 0 ? "#3f3f46" : "#fafafa"}
-                    />
-                    <Text
-                      style={[
-                        styles.navButtonText,
-                        currentMatchIndex === 0 && styles.navButtonTextDisabled,
-                      ]}
-                    >
-                      Prev
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    style={[
-                      styles.navButton,
-                      currentMatchIndex === allMatchesFlat.length - 1 &&
-                        styles.navButtonDisabled,
-                    ]}
-                    onPress={() =>
-                      setCurrentMatchIndex((prev) =>
-                        Math.min(allMatchesFlat.length - 1, prev + 1)
-                      )
+                    onPlayerTap={(playerId) =>
+                      setTransferState({ playerId, fromTeamId: team.id })
                     }
-                    disabled={currentMatchIndex === allMatchesFlat.length - 1}
-                  >
-                    <Text
-                      style={[
-                        styles.navButtonText,
-                        currentMatchIndex === allMatchesFlat.length - 1 &&
-                          styles.navButtonTextDisabled,
-                      ]}
-                    >
-                      Next
+                  />
+                ))
+              )}
+            </CollapsibleSection>
+
+            {/* Table Section */}
+            <CollapsibleSection title="Standings" defaultOpen={true}>
+              {table.length === 0 ? (
+                <Text style={styles.emptyText}>No standings yet</Text>
+              ) : (
+                <View style={styles.table}>
+                  <View style={styles.tableHeader}>
+                    <Text style={styles.tablePos}>#</Text>
+                    <View style={styles.colorDot} />
+                    <Text style={[styles.tableCell, styles.tableTeamName]}>
+                      Team
                     </Text>
-                    <Ionicons
-                      name="chevron-forward"
-                      size={20}
-                      color={
-                        currentMatchIndex === allMatchesFlat.length - 1
-                          ? "#3f3f46"
-                          : "#fafafa"
+                    <Text style={styles.tableCell}>P</Text>
+                    <Text style={styles.tableCell}>Pts</Text>
+                    <Text style={styles.tableCell}>GD</Text>
+                  </View>
+                  {table.map((row, index) => {
+                    const inSemiWindow =
+                      currentNight.teams.length >= 4 ? index < 4 : index === 0;
+                    const isBottomQual = bottomTwo.includes(row.teamId);
+                    return (
+                      <TableRow
+                        key={row.teamId}
+                        row={row}
+                        index={index}
+                        inSemiWindow={inSemiWindow}
+                        isBottomQual={isBottomQual}
+                      />
+                    );
+                  })}
+                </View>
+              )}
+            </CollapsibleSection>
+
+            {/* Matches Section */}
+            <CollapsibleSection
+              title="Matches"
+              badge={allMatchesFlat.length}
+              defaultOpen={true}
+            >
+              {/* View toggle */}
+              <View style={styles.matchToggle}>
+                <Pressable
+                  style={[
+                    styles.togglePill,
+                    showAllMatches && styles.togglePillActive,
+                  ]}
+                  onPress={() => setShowAllMatches(true)}
+                >
+                  <Text
+                    style={[
+                      styles.togglePillText,
+                      showAllMatches && styles.togglePillTextActive,
+                    ]}
+                  >
+                    All
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[
+                    styles.togglePill,
+                    !showAllMatches && styles.togglePillActive,
+                  ]}
+                  onPress={() => setShowAllMatches(false)}
+                >
+                  <Text
+                    style={[
+                      styles.togglePillText,
+                      !showAllMatches && styles.togglePillTextActive,
+                    ]}
+                  >
+                    One by One
+                  </Text>
+                </Pressable>
+              </View>
+
+              {matchesByStage.length === 0 ? (
+                <Text style={styles.emptyText}>
+                  Add at least 2 teams to generate fixtures
+                </Text>
+              ) : showAllMatches ? (
+                matchesByStage.map(({ stage, matches }) => (
+                  <View key={stage} style={styles.stageBlock}>
+                    <Text style={styles.stageLabel}>{stageLabel[stage]}</Text>
+                    {matches.map((match) => (
+                      <MatchRow
+                        key={match.id}
+                        match={match}
+                        homeTeam={findTeam(match.homeId)}
+                        awayTeam={findTeam(match.awayId)}
+                        isAttached={currentNight.currentMatchId === match.id}
+                        attachToTimer={() => attachMatchToTimer(match.id)}
+                        onSave={(h, a) => updateMatchScore(match.id, h, a)}
+                        onResolveTie={(method, h, a) =>
+                          resolveTie(match.id, method, h, a)
+                        }
+                        onDurationChange={(seconds) =>
+                          setMatchDuration(match.id, seconds)
+                        }
+                      />
+                    ))}
+                  </View>
+                ))
+              ) : (
+                allMatchesFlat.length > 0 &&
+                allMatchesFlat[currentMatchIndex] && (
+                  <View style={styles.singleMatchView}>
+                    <Text style={styles.matchCounter}>
+                      {currentMatchIndex + 1} / {allMatchesFlat.length}
+                    </Text>
+                    <Text style={styles.stageLabel}>
+                      {stageLabel[allMatchesFlat[currentMatchIndex].stage]}
+                    </Text>
+                    <MatchRow
+                      match={allMatchesFlat[currentMatchIndex].match}
+                      homeTeam={findTeam(
+                        allMatchesFlat[currentMatchIndex].match.homeId
+                      )}
+                      awayTeam={findTeam(
+                        allMatchesFlat[currentMatchIndex].match.awayId
+                      )}
+                      isAttached={
+                        currentNight.currentMatchId ===
+                        allMatchesFlat[currentMatchIndex].match.id
+                      }
+                      attachToTimer={() =>
+                        attachMatchToTimer(
+                          allMatchesFlat[currentMatchIndex].match.id
+                        )
+                      }
+                      onSave={(h, a) =>
+                        updateMatchScore(
+                          allMatchesFlat[currentMatchIndex].match.id,
+                          h,
+                          a
+                        )
+                      }
+                      onSaveComplete={() => {
+                        // Auto-advance to next match after saving
+                        if (currentMatchIndex < allMatchesFlat.length - 1) {
+                          setCurrentMatchIndex((prev) => prev + 1);
+                        }
+                      }}
+                      onResolveTie={(method, h, a) =>
+                        resolveTie(
+                          allMatchesFlat[currentMatchIndex].match.id,
+                          method,
+                          h,
+                          a
+                        )
+                      }
+                      onDurationChange={(seconds) =>
+                        setMatchDuration(
+                          allMatchesFlat[currentMatchIndex].match.id,
+                          seconds
+                        )
                       }
                     />
-                  </Pressable>
-                </View>
-              </View>
-            )
-          )}
-        </CollapsibleSection>
+                    <View style={styles.matchNav}>
+                      <Pressable
+                        style={[
+                          styles.navButton,
+                          currentMatchIndex === 0 && styles.navButtonDisabled,
+                        ]}
+                        onPress={() =>
+                          setCurrentMatchIndex((prev) => Math.max(0, prev - 1))
+                        }
+                        disabled={currentMatchIndex === 0}
+                      >
+                        <Ionicons
+                          name="chevron-back"
+                          size={20}
+                          color={
+                            currentMatchIndex === 0 ? "#3f3f46" : "#fafafa"
+                          }
+                        />
+                        <Text
+                          style={[
+                            styles.navButtonText,
+                            currentMatchIndex === 0 &&
+                              styles.navButtonTextDisabled,
+                          ]}
+                        >
+                          Prev
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        style={[
+                          styles.navButton,
+                          currentMatchIndex === allMatchesFlat.length - 1 &&
+                            styles.navButtonDisabled,
+                        ]}
+                        onPress={() =>
+                          setCurrentMatchIndex((prev) =>
+                            Math.min(allMatchesFlat.length - 1, prev + 1)
+                          )
+                        }
+                        disabled={
+                          currentMatchIndex === allMatchesFlat.length - 1
+                        }
+                      >
+                        <Text
+                          style={[
+                            styles.navButtonText,
+                            currentMatchIndex === allMatchesFlat.length - 1 &&
+                              styles.navButtonTextDisabled,
+                          ]}
+                        >
+                          Next
+                        </Text>
+                        <Ionicons
+                          name="chevron-forward"
+                          size={20}
+                          color={
+                            currentMatchIndex === allMatchesFlat.length - 1
+                              ? "#3f3f46"
+                              : "#fafafa"
+                          }
+                        />
+                      </Pressable>
+                    </View>
+                  </View>
+                )
+              )}
+            </CollapsibleSection>
 
-        {/* Bracket Section */}
-        <CollapsibleSection title="Bracket" defaultOpen={false}>
-          <Bracket matches={currentNight.matches} teams={currentNight.teams} />
-        </CollapsibleSection>
-      </ScrollView>
+            {/* Bracket Section */}
+            <CollapsibleSection title="Bracket" defaultOpen={false}>
+              <Bracket
+                matches={currentNight.matches}
+                teams={currentNight.teams}
+              />
+            </CollapsibleSection>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </TouchableWithoutFeedback>
 
       {/* Team Edit Sheet */}
       <TeamEditSheet
