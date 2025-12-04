@@ -12,19 +12,14 @@ import {
   TouchableWithoutFeedback,
   View,
 } from "react-native";
-import Animated, {
-  Easing,
-  interpolate,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from "react-native-reanimated";
+import Svg, { Circle } from "react-native-svg";
 
 import { useTournament } from "@/state/TournamentProvider";
 
 const CIRCLE_SIZE = 280;
 const STROKE_WIDTH = 8;
-const HALF_SIZE = CIRCLE_SIZE / 2;
+const RADIUS = (CIRCLE_SIZE - STROKE_WIDTH) / 2;
+const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
 const pulse = async () => {
   for (let i = 0; i < 15; i++) {
@@ -41,7 +36,7 @@ const formatTime = (seconds: number) => {
   return `${mins}:${secs}`;
 };
 
-// Circular countdown progress - REVERSED
+// Circular countdown progress
 // Circle FILLS UP as time runs out (shows elapsed time)
 // Empty at start → Full when timer ends
 const CircularProgress = ({
@@ -52,58 +47,42 @@ const CircularProgress = ({
   isRunning: boolean;
 }) => {
   // elapsed = 1 - progress (how much time has passed)
-  const elapsed = useSharedValue(1 - progress);
+  const elapsed = 1 - progress;
 
-  useEffect(() => {
-    elapsed.value = withTiming(1 - progress, {
-      duration: 200,
-      easing: Easing.linear,
-    });
-  }, [progress, elapsed]);
+  // strokeDashoffset: CIRCUMFERENCE = empty, 0 = full
+  const strokeDashoffset = CIRCUMFERENCE * (1 - elapsed);
 
   const fillColor = isRunning ? "#3b82f6" : "#52525b";
 
-  // Right arc: fills first as time passes (0% to 50% elapsed)
-  const rightArcRotation = useAnimatedStyle(() => {
-    // elapsed 0 → -180° (hidden), elapsed 0.5+ → 0° (visible)
-    const deg = interpolate(elapsed.value, [0, 0.5, 1], [-180, 0, 0]);
-    return { transform: [{ rotate: `${deg}deg` }] };
-  });
-
-  // Left arc: fills second (50% to 100% elapsed)
-  const leftArcRotation = useAnimatedStyle(() => {
-    // elapsed 0-0.5 → -180° (hidden), elapsed 1 → 0° (visible)
-    const deg = interpolate(elapsed.value, [0, 0.5, 1], [-180, -180, 0]);
-    return { transform: [{ rotate: `${deg}deg` }] };
-  });
-
   return (
     <View style={styles.progressContainer}>
-      {/* Background track - always visible */}
-      <View style={styles.track} />
-
-      {/* Right half - fills from top going clockwise */}
-      <View style={styles.clipRight}>
-        <Animated.View
-          style={[
-            styles.arcCircle,
-            { borderColor: fillColor },
-            rightArcRotation,
-          ]}
+      <Svg
+        width={CIRCLE_SIZE}
+        height={CIRCLE_SIZE}
+        style={{ transform: [{ rotate: "-90deg" }] }}
+      >
+        {/* Background track */}
+        <Circle
+          cx={CIRCLE_SIZE / 2}
+          cy={CIRCLE_SIZE / 2}
+          r={RADIUS}
+          fill="none"
+          stroke="rgba(255, 255, 255, 0.1)"
+          strokeWidth={STROKE_WIDTH}
         />
-      </View>
-
-      {/* Left half - fills from bottom going clockwise */}
-      <View style={styles.clipLeft}>
-        <Animated.View
-          style={[
-            styles.arcCircle,
-            styles.arcCircleLeft,
-            { borderColor: fillColor },
-            leftArcRotation,
-          ]}
+        {/* Progress arc */}
+        <Circle
+          cx={CIRCLE_SIZE / 2}
+          cy={CIRCLE_SIZE / 2}
+          r={RADIUS}
+          fill="none"
+          stroke={fillColor}
+          strokeWidth={STROKE_WIDTH}
+          strokeLinecap="round"
+          strokeDasharray={CIRCUMFERENCE}
+          strokeDashoffset={strokeDashoffset}
         />
-      </View>
+      </Svg>
     </View>
   );
 };
@@ -160,9 +139,6 @@ export default function TimerScreen() {
     if (remaining === 0 && running) {
       setRunning(false);
       if (intervalRef.current) clearInterval(intervalRef.current);
-      // Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
-      //   () => {}
-      // );
       pulse();
     }
   }, [remaining, running]);
@@ -368,52 +344,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 20,
   },
-  // Main container - rotated so 0° is at 12 o'clock
   progressContainer: {
     width: CIRCLE_SIZE,
     height: CIRCLE_SIZE,
-    transform: [{ rotate: "-90deg" }],
-  },
-  // Gray background track
-  track: {
-    position: "absolute",
-    width: CIRCLE_SIZE,
-    height: CIRCLE_SIZE,
-    borderRadius: HALF_SIZE,
-    borderWidth: STROKE_WIDTH,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-  },
-  // Right clip - shows right side of contained elements
-  clipRight: {
-    position: "absolute",
-    top: 0,
-    left: HALF_SIZE,
-    width: HALF_SIZE,
-    height: CIRCLE_SIZE,
-    overflow: "hidden",
-  },
-  // Left clip - shows left side of contained elements
-  clipLeft: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    width: HALF_SIZE,
-    height: CIRCLE_SIZE,
-    overflow: "hidden",
-  },
-  // The arc circle - positioned with center at clip edge
-  arcCircle: {
-    position: "absolute",
-    top: 0,
-    left: -HALF_SIZE, // Center at left edge of right clip
-    width: CIRCLE_SIZE,
-    height: CIRCLE_SIZE,
-    borderRadius: HALF_SIZE,
-    borderWidth: STROKE_WIDTH,
-  },
-  // Position adjustment for left clip's arc
-  arcCircleLeft: {
-    left: 0, // Center at right edge of left clip
+    alignItems: "center",
+    justifyContent: "center",
   },
   timerCenter: {
     position: "absolute",
