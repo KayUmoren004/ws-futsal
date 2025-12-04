@@ -394,6 +394,7 @@ const MatchRow = ({
   homeTeam,
   awayTeam,
   onSave,
+  onSaveComplete,
   isAttached,
   attachToTimer,
   onResolveTie,
@@ -403,6 +404,7 @@ const MatchRow = ({
   homeTeam?: Team;
   awayTeam?: Team;
   onSave: (home: number | undefined, away: number | undefined) => void;
+  onSaveComplete?: () => void;
   isAttached: boolean;
   attachToTimer: () => void;
   onResolveTie: (
@@ -482,14 +484,28 @@ const MatchRow = ({
       </View>
 
       <Pressable
-        style={styles.saveScoreButton}
+        style={[
+          styles.saveScoreButton,
+          !scoresFilled && styles.saveScoreButtonDisabled,
+        ]}
+        disabled={!scoresFilled}
         onPress={() => {
           const homeScore = home === "" ? undefined : Number(home);
           const awayScore = away === "" ? undefined : Number(away);
           onSave(homeScore, awayScore);
+          if (onSaveComplete) {
+            onSaveComplete();
+          }
         }}
       >
-        <Text style={styles.saveScoreText}>Save</Text>
+        <Text
+          style={[
+            styles.saveScoreText,
+            !scoresFilled && styles.saveScoreTextDisabled,
+          ]}
+        >
+          Save
+        </Text>
       </Pressable>
 
       {isKnockout && scoresFilled && isTied && (
@@ -1199,6 +1215,12 @@ export default function GamesScreen() {
                       a
                     )
                   }
+                  onSaveComplete={() => {
+                    // Auto-advance to next match after saving
+                    if (currentMatchIndex < allMatchesFlat.length - 1) {
+                      setCurrentMatchIndex((prev) => prev + 1);
+                    }
+                  }}
                   onResolveTie={(method, h, a) =>
                     resolveTie(
                       allMatchesFlat[currentMatchIndex].match.id,
@@ -1903,6 +1925,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     color: "#09090b",
+  },
+  saveScoreButtonDisabled: {
+    backgroundColor: "#3f3f46",
+  },
+  saveScoreTextDisabled: {
+    color: "#71717a",
   },
 
   // Match actions
