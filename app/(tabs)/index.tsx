@@ -4,12 +4,14 @@ import { useTournament } from "@/state/TournamentProvider";
 import { Match, MatchStage, Team } from "@/types/tournament";
 import { Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
+import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Modal,
+  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -76,19 +78,186 @@ const CollapsibleSection = ({
   );
 };
 
-// Team Row Component
-const TeamRow = ({ team, onPress }: { team: Team; onPress: () => void }) => (
-  <Pressable style={styles.listRow} onPress={onPress}>
-    <View style={styles.rowLeft}>
-      <View style={[styles.colorDot, { backgroundColor: team.color }]} />
-      <View>
-        <Text style={styles.rowTitle}>{team.name || "Unnamed Team"}</Text>
-        <Text style={styles.rowSubtitle}>{team.players.length} players</Text>
-      </View>
+// Team Row Component (expandable to show players)
+const TeamRow = ({
+  team,
+  onEdit,
+  onAddPlayers,
+  onPlayerTap,
+}: {
+  team: Team;
+  onEdit: () => void;
+  onAddPlayers: () => void;
+  onPlayerTap: (playerId: string) => void;
+}) => {
+  const [expanded, setExpanded] = useState(false);
+
+  const handleLongPress = () => {
+    if (!expanded) {
+      if (Platform.OS === "ios") {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      }
+      onAddPlayers();
+    }
+  };
+
+  return (
+    <View style={styles.teamRowContainer}>
+      <Pressable
+        style={styles.listRow}
+        onPress={() => setExpanded(!expanded)}
+        onLongPress={handleLongPress}
+        delayLongPress={400}
+      >
+        <View style={styles.rowLeft}>
+          <View style={[styles.colorDot, { backgroundColor: team.color }]} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.rowTitle}>{team.name || "Unnamed Team"}</Text>
+            <Text style={styles.rowSubtitle}>
+              {team.players.length} players
+            </Text>
+          </View>
+        </View>
+        <View style={styles.teamRowRight}>
+          <Pressable
+            style={styles.editIconButton}
+            onPress={(e) => {
+              e.stopPropagation();
+              onEdit();
+            }}
+            hitSlop={8}
+          >
+            <Ionicons name="settings-outline" size={16} color="#52525b" />
+          </Pressable>
+          <Ionicons
+            name={expanded ? "chevron-up" : "chevron-down"}
+            size={18}
+            color="#52525b"
+          />
+        </View>
+      </Pressable>
+
+      {expanded && (
+        <View style={styles.playersExpanded}>
+          {team.players.length === 0 ? (
+            <View style={styles.noPlayersRow}>
+              <Text style={styles.noPlayersText}>No players assigned</Text>
+              <Pressable style={styles.addPlayersInline} onPress={onAddPlayers}>
+                <Ionicons name="add" size={14} color="#3b82f6" />
+                <Text style={styles.addPlayersInlineText}>Add</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <>
+              <View style={styles.playersList}>
+                {[...team.players]
+                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .map((player, index) => (
+                    <Pressable
+                      key={player.id}
+                      style={[
+                        styles.playerChip,
+                        styles.playerChipTappable,
+                        index % 2 === 0 && styles.playerChipAlt,
+                      ]}
+                      onPress={() => onPlayerTap(player.id)}
+                    >
+                      <Text style={styles.playerChipText}>{player.name}</Text>
+                      <Ionicons
+                        name="swap-horizontal"
+                        size={12}
+                        color="#52525b"
+                        style={{ marginLeft: 4 }}
+                      />
+                    </Pressable>
+                  ))}
+              </View>
+              <Pressable
+                style={styles.managePlayersButton}
+                onPress={onAddPlayers}
+              >
+                <Ionicons name="person-add-outline" size={14} color="#3b82f6" />
+                <Text style={styles.managePlayersText}>Manage Players</Text>
+              </Pressable>
+            </>
+          )}
+        </View>
+      )}
     </View>
-    <Ionicons name="chevron-forward" size={18} color="#52525b" />
-  </Pressable>
-);
+  );
+};
+
+// Quick Transfer Modal Component
+const QuickTransferModal = ({
+  visible,
+  player,
+  fromTeam,
+  otherTeams,
+  onTransfer,
+  onClose,
+}: {
+  visible: boolean;
+  player: { id: string; name: string } | null;
+  fromTeam: Team | null;
+  otherTeams: Team[];
+  onTransfer: (toTeamId: string) => void;
+  onClose: () => void;
+}) => {
+  if (!player || !fromTeam) return null;
+
+  return (
+    <Modal visible={visible} transparent animationType="fade">
+      <Pressable style={styles.transferBackdrop} onPress={onClose}>
+        <View style={styles.transferSheet}>
+          <View style={styles.transferHeader}>
+            <Text style={styles.transferTitle}>Transfer {player.name}</Text>
+            <Pressable onPress={onClose} hitSlop={12}>
+              <Ionicons name="close" size={22} color="#71717a" />
+            </Pressable>
+          </View>
+
+          <View style={styles.transferFrom}>
+            <Text style={styles.transferFromLabel}>From</Text>
+            <View style={styles.transferFromTeam}>
+              <View
+                style={[styles.colorDot, { backgroundColor: fromTeam.color }]}
+              />
+              <Text style={styles.transferFromName}>{fromTeam.name}</Text>
+            </View>
+          </View>
+
+          <Text style={styles.transferToLabel}>Transfer to:</Text>
+
+          {otherTeams.length === 0 ? (
+            <Text style={styles.noTeamsText}>No other teams available</Text>
+          ) : (
+            <View style={styles.transferTeamsList}>
+              {otherTeams.map((team) => (
+                <Pressable
+                  key={team.id}
+                  style={styles.transferTeamOption}
+                  onPress={() => onTransfer(team.id)}
+                >
+                  <View
+                    style={[
+                      styles.transferTeamColor,
+                      { backgroundColor: team.color },
+                    ]}
+                  />
+                  <Text style={styles.transferTeamName}>{team.name}</Text>
+                  <Text style={styles.transferTeamCount}>
+                    {team.players.length}
+                  </Text>
+                  <Ionicons name="arrow-forward" size={16} color="#3b82f6" />
+                </Pressable>
+              ))}
+            </View>
+          )}
+        </View>
+      </Pressable>
+    </Modal>
+  );
+};
 
 // Team Edit Sheet
 const TeamEditSheet = ({
@@ -653,6 +822,7 @@ export default function GamesScreen() {
     attachMatchToTimer,
     setCurrentNight,
     startNight,
+    transferPlayer,
   } = useTournament();
 
   const [newTeamName, setNewTeamName] = useState("");
@@ -661,6 +831,41 @@ export default function GamesScreen() {
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [showAllMatches, setShowAllMatches] = useState(false);
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+
+  // Quick transfer state
+  const [transferState, setTransferState] = useState<{
+    playerId: string;
+    fromTeamId: string;
+  } | null>(null);
+
+  const transferringPlayer = useMemo(() => {
+    if (!transferState || !currentNight) return null;
+    const team = currentNight.teams.find(
+      (t) => t.id === transferState.fromTeamId
+    );
+    return team?.players.find((p) => p.id === transferState.playerId) ?? null;
+  }, [transferState, currentNight]);
+
+  const transferFromTeam = useMemo(() => {
+    if (!transferState || !currentNight) return null;
+    return (
+      currentNight.teams.find((t) => t.id === transferState.fromTeamId) ?? null
+    );
+  }, [transferState, currentNight]);
+
+  const otherTeamsForTransfer = useMemo(() => {
+    if (!transferState || !currentNight) return [];
+    return currentNight.teams.filter((t) => t.id !== transferState.fromTeamId);
+  }, [transferState, currentNight]);
+
+  const handleQuickTransfer = (toTeamId: string) => {
+    if (!transferState) return;
+    if (Platform.OS === "ios") {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+    transferPlayer(transferState.playerId, transferState.fromTeamId, toTeamId);
+    setTransferState(null);
+  };
 
   const loading = state.loading || !currentNight;
 
@@ -842,7 +1047,16 @@ export default function GamesScreen() {
               <TeamRow
                 key={team.id}
                 team={team}
-                onPress={() => setEditingTeam(team)}
+                onEdit={() => setEditingTeam(team)}
+                onAddPlayers={() =>
+                  router.push({
+                    pathname: "/add-players-modal",
+                    params: { teamId: team.id },
+                  })
+                }
+                onPlayerTap={(playerId) =>
+                  setTransferState({ playerId, fromTeamId: team.id })
+                }
               />
             ))
           )}
@@ -1086,6 +1300,16 @@ export default function GamesScreen() {
         usedColors={usedColors}
       />
 
+      {/* Quick Transfer Modal */}
+      <QuickTransferModal
+        visible={!!transferState}
+        player={transferringPlayer}
+        fromTeam={transferFromTeam}
+        otherTeams={otherTeamsForTransfer}
+        onTransfer={handleQuickTransfer}
+        onClose={() => setTransferState(null)}
+      />
+
       {/* Night Selector Modal */}
       <Modal
         visible={nightSheetVisible}
@@ -1244,18 +1468,31 @@ const styles = StyleSheet.create({
   },
 
   // List Row
+  teamRowContainer: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(255,255,255,0.08)",
+  },
   listRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "rgba(255,255,255,0.08)",
   },
   rowLeft: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
+    flex: 1,
+  },
+  teamRowRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  editIconButton: {
+    padding: 6,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderRadius: 6,
   },
   rowTitle: {
     fontSize: 16,
@@ -1266,6 +1503,165 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#52525b",
     marginTop: 1,
+  },
+  // Expanded players section
+  playersExpanded: {
+    paddingBottom: 14,
+    paddingLeft: 22,
+    gap: 10,
+  },
+  noPlayersRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 8,
+  },
+  noPlayersText: {
+    fontSize: 14,
+    color: "#52525b",
+    fontStyle: "italic",
+  },
+  addPlayersInline: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: "rgba(59, 130, 246, 0.1)",
+    borderRadius: 6,
+  },
+  addPlayersInlineText: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#3b82f6",
+  },
+  playersList: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  playerChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderRadius: 6,
+  },
+  playerChipAlt: {
+    backgroundColor: "rgba(255,255,255,0.04)",
+  },
+  playerChipText: {
+    fontSize: 13,
+    color: "#a1a1aa",
+    fontWeight: "500",
+  },
+  managePlayersButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    alignSelf: "flex-start",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginTop: 4,
+  },
+  managePlayersText: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#3b82f6",
+  },
+  playerChipTappable: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  // Quick Transfer Modal
+  transferBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  transferSheet: {
+    backgroundColor: "#18181b",
+    borderRadius: 16,
+    padding: 20,
+    width: "100%",
+    maxWidth: 340,
+  },
+  transferHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  transferTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#fafafa",
+  },
+  transferFrom: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 16,
+  },
+  transferFromLabel: {
+    fontSize: 13,
+    color: "#52525b",
+  },
+  transferFromTeam: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  transferFromName: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: "#a1a1aa",
+  },
+  transferToLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#52525b",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 10,
+  },
+  noTeamsText: {
+    fontSize: 14,
+    color: "#52525b",
+    textAlign: "center",
+    paddingVertical: 20,
+  },
+  transferTeamsList: {
+    gap: 8,
+  },
+  transferTeamOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(59, 130, 246, 0.08)",
+    borderRadius: 10,
+    padding: 14,
+    gap: 10,
+  },
+  transferTeamColor: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+  },
+  transferTeamName: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#fafafa",
+  },
+  transferTeamCount: {
+    fontSize: 13,
+    color: "#52525b",
+    marginRight: 4,
   },
 
   // Color elements
