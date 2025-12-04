@@ -37,8 +37,8 @@ const formatTime = (seconds: number) => {
 };
 
 // Circular countdown progress
-// Circle FILLS UP as time runs out (shows elapsed time)
-// Empty at start → Full when timer ends
+// Circle EMPTIES as time runs out (shows remaining time)
+// Full at start → Empty when timer ends
 const CircularProgress = ({
   progress,
   isRunning,
@@ -46,11 +46,9 @@ const CircularProgress = ({
   progress: number;
   isRunning: boolean;
 }) => {
-  // elapsed = 1 - progress (how much time has passed)
-  const elapsed = 1 - progress;
-
-  // strokeDashoffset: CIRCUMFERENCE = empty, 0 = full
-  const strokeDashoffset = CIRCUMFERENCE * (1 - elapsed);
+  // strokeDashoffset: 0 = full, CIRCUMFERENCE = empty
+  // progress: 1 = full time remaining, 0 = no time remaining
+  const strokeDashoffset = CIRCUMFERENCE * (1 - progress);
 
   const fillColor = isRunning ? "#3b82f6" : "#52525b";
 
